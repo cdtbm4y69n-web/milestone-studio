@@ -325,8 +325,7 @@ function createAngularSpiroPath({
 }
 
 function getMilestoneByRole(milestones: Milestone[], roleIndex: number) {
-  const valid = milestones.filter((m) => m.label.trim() && m.date);
-  return valid[roleIndex % Math.max(valid.length, 1)];
+  return milestones[roleIndex % milestones.length];
 }
 
 function buildReferenceLikeComposition(
@@ -337,6 +336,10 @@ function buildReferenceLikeComposition(
   const validMilestones = milestones
     .filter((m) => m.label.trim() && m.date)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  if (validMilestones.length === 0) {
+    return [];
+  }
 
   const seed = milestoneSeed(primaryDate, validMilestones);
   const anchorSum = digitSum(primaryDate);
@@ -392,10 +395,10 @@ function buildReferenceLikeComposition(
 
   return roleBlueprints.map((blueprint, index) => {
     const milestone = getMilestoneByRole(validMilestones, index);
-    const importance = milestone ? clamp(milestone.importance, 1, 5) : 3;
-    const date = milestone?.date ?? primaryDate;
-    const category = milestone?.category ?? "Other";
-    const label = milestone?.label ?? "Milestone";
+    const importance = clamp(milestone.importance, 1, 5);
+    const date = milestone.date;
+    const category = milestone.category;
+    const label = milestone.label;
     const dateSum = digitSum(date);
     const localSeed = `${seed}${date}${label}${index}`;
 
@@ -445,26 +448,29 @@ function ArtworkPreview({
       <div className="frame-mockup">
         <div className="frame-inner-shadow">
           <div className="art-paper" style={{ background: palette.paper }}>
-            <svg viewBox="0 0 640 640" className="art-svg full-art-svg" aria-label="Generated interpretive artwork preview">
-              <rect x="0" y="0" width="640" height="640" fill="#ffffff" />
+            {nodes.length === 0 ? (
+              <div className="blank-art-canvas" aria-label="Blank artwork canvas"></div>
+            ) : (
+              <svg viewBox="0 0 640 640" className="art-svg full-art-svg" aria-label="Generated interpretive artwork preview">
+                <rect x="0" y="0" width="640" height="640" fill="#ffffff" />
 
-              <g>
-                <circle cx="342" cy="312" r="112" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.16" />
-                <circle cx="354" cy="292" r="180" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.13" />
-                <circle cx="368" cy="276" r="292" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.105" />
-                <circle cx="382" cy="256" r="440" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.08" />
-              </g>
+                <g>
+                  <circle cx="342" cy="312" r="112" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.16" />
+                  <circle cx="354" cy="292" r="180" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.13" />
+                  <circle cx="368" cy="276" r="292" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.105" />
+                  <circle cx="382" cy="256" r="440" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.08" />
+                </g>
 
-              <path
-                d={connectorPath}
-                fill="none"
-                stroke="#8ea4b5"
-                strokeOpacity="0.32"
-                strokeWidth="1.35"
-                strokeDasharray="7 14"
-              />
+                <path
+                  d={connectorPath}
+                  fill="none"
+                  stroke="#8ea4b5"
+                  strokeOpacity="0.32"
+                  strokeWidth="1.35"
+                  strokeDasharray="7 14"
+                />
 
-              {nodes.map((node) => {
+                {nodes.map((node) => {
                 if (node.role === "dominant-ring") {
                   return (
                     <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
@@ -627,7 +633,8 @@ function ArtworkPreview({
                   </g>
                 );
               })}
-            </svg>
+              </svg>
+            )}
           </div>
         </div>
       </div>
@@ -792,6 +799,11 @@ export default function App() {
         .art-topline { display:flex; justify-content:space-between; align-items:center; font-size: 14px; letter-spacing: .18em; font-weight: 900; color:#9a6d37; }
         .art-svg { width: 100%; height: 100%; display:block; margin: 0; }
         .full-art-svg { background: #ffffff; }
+        .blank-art-canvas {
+          width: 100%;
+          height: 100%;
+          background: #ffffff;
+        }
         .art-center-caption { text-align:center; margin-top: -8px; color:#201815; font-size: 18px; letter-spacing: .08em; }
         .art-title-block { text-align:center; margin: 10px 0 14px; }
         .art-title-block h3 { margin:0; font-size: 26px; line-height:1.1; }
