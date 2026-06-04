@@ -182,26 +182,26 @@ function milestoneSeed(primaryDate: string, milestones: Milestone[]) {
 function seededValue(seed: string, index: number) {
   const charCodeTotal = seed
     .split("")
-    .reduce((sum, char, charIndex) => sum + char.charCodeAt(0) * (charIndex + 3 + index), 0);
+    .reduce((sum, char, charIndex) => sum + char.charCodeAt(0) * (charIndex + 5 + index), 0);
 
   const raw = Math.sin(charCodeTotal * 12.9898 + index * 78.233) * 43758.5453;
   return raw - Math.floor(raw);
 }
 
-function createEarlierSpiroPoints({
+function createWovenRingPath({
   cx,
   cy,
-  outerRadius,
-  innerRadius,
-  petals,
+  radius,
+  weave,
+  lobes,
   phase,
-  steps = 560,
+  steps = 980,
 }: {
   cx: number;
   cy: number;
-  outerRadius: number;
-  innerRadius: number;
-  petals: number;
+  radius: number;
+  weave: number;
+  lobes: number;
   phase: number;
   steps?: number;
 }) {
@@ -209,11 +209,10 @@ function createEarlierSpiroPoints({
 
   for (let i = 0; i <= steps; i += 1) {
     const t = (Math.PI * 2 * i) / steps;
-    const r =
-      outerRadius +
-      Math.sin(t * petals + phase) * innerRadius +
-      Math.cos(t * (petals + 3) - phase) * (innerRadius * 0.38);
-
+    const ripple =
+      Math.sin(t * lobes + phase) * weave +
+      Math.cos(t * (lobes * 0.5 + 7) - phase) * weave * 0.22;
+    const r = radius + ripple;
     const x = cx + Math.cos(t) * r;
     const y = cy + Math.sin(t) * r;
 
@@ -223,11 +222,114 @@ function createEarlierSpiroPoints({
   return points.join(" ");
 }
 
-function getEarlierSpiroPalette(palette: Palette) {
-  return palette.lines;
+function createSpiroLoopPath({
+  cx,
+  cy,
+  outerRadius,
+  innerRadius,
+  offsetRadius,
+  rotations,
+  steps = 1180,
+}: {
+  cx: number;
+  cy: number;
+  outerRadius: number;
+  innerRadius: number;
+  offsetRadius: number;
+  rotations: number;
+  steps?: number;
+}) {
+  const points: string[] = [];
+
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (Math.PI * 2 * rotations * i) / steps;
+    const ratio = (outerRadius - innerRadius) / Math.max(innerRadius, 1);
+    const x =
+      cx +
+      (outerRadius - innerRadius) * Math.cos(t) +
+      offsetRadius * Math.cos(ratio * t);
+    const y =
+      cy +
+      (outerRadius - innerRadius) * Math.sin(t) -
+      offsetRadius * Math.sin(ratio * t);
+
+    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+
+  return points.join(" ");
 }
 
-function buildEarlierPlacementClusters(
+function createRosePath({
+  cx,
+  cy,
+  radius,
+  petals,
+  stretchX,
+  stretchY,
+  phase,
+  steps = 720,
+}: {
+  cx: number;
+  cy: number;
+  radius: number;
+  petals: number;
+  stretchX: number;
+  stretchY: number;
+  phase: number;
+  steps?: number;
+}) {
+  const points: string[] = [];
+
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (Math.PI * 2 * i) / steps;
+    const r = radius * Math.cos(petals * t + phase);
+    const x = cx + Math.cos(t) * r * stretchX;
+    const y = cy + Math.sin(t) * r * stretchY;
+
+    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+
+  return points.join(" ");
+}
+
+function createAngularSpiroPath({
+  cx,
+  cy,
+  radius,
+  pointsCount,
+  skip,
+  wobble,
+  phase,
+}: {
+  cx: number;
+  cy: number;
+  radius: number;
+  pointsCount: number;
+  skip: number;
+  wobble: number;
+  phase: number;
+}) {
+  const points: string[] = [];
+
+  for (let i = 0; i <= pointsCount * 3; i += 1) {
+    const index = (i * skip) % pointsCount;
+    const angle = (Math.PI * 2 * index) / pointsCount + phase;
+    const r = radius + Math.sin(i * 0.9 + phase) * wobble;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+
+    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+
+  return points.join(" ");
+}
+
+function getMilestoneByRole(milestones: Milestone[], roleIndex: number) {
+  const valid = milestones.filter((m) => m.label.trim() && m.date);
+  return valid[roleIndex % Math.max(valid.length, 1)];
+}
+
+function buildReferenceLikeComposition(
   primaryDate: string,
   milestones: Milestone[],
   palette: Palette,
@@ -237,94 +339,81 @@ function buildEarlierPlacementClusters(
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const seed = milestoneSeed(primaryDate, validMilestones);
-  const colors = getEarlierSpiroPalette(palette);
   const anchorSum = digitSum(primaryDate);
-  const milestoneCount = Math.max(validMilestones.length, 1);
+  const colors = palette.lines;
 
-  const oldPlacementBlueprint = [
+  const roleBlueprints = [
     {
-      cx: 336,
-      cy: 188,
-      radius: 96,
-      inner: 19,
-      petals: 30,
-      colorIndex: 2,
-      opacity: 0.72,
-      stroke: 1.05,
-      role: "dominant",
+      role: "dominant-ring",
+      x: 430,
+      y: 224,
+      baseSize: 112,
+      color: "#f0c94f",
+      fallbackColorIndex: 2,
+      categoryInfluence: 0.18,
     },
     {
-      cx: 176,
-      cy: 272,
-      radius: 82,
-      inner: 22,
-      petals: 16,
-      colorIndex: 1,
-      opacity: 0.7,
-      stroke: 1.05,
-      role: "structural",
+      role: "dark-angular",
+      x: 190,
+      y: 314,
+      baseSize: 100,
+      color: "#20324a",
+      fallbackColorIndex: 1,
+      categoryInfluence: 0.08,
     },
     {
-      cx: 410,
-      cy: 368,
-      radius: 66,
-      inner: 19,
-      petals: 12,
-      colorIndex: 4,
-      opacity: 0.72,
-      stroke: 1,
-      role: "warm",
+      role: "orange-flower",
+      x: 470,
+      y: 442,
+      baseSize: 82,
+      color: "#df8749",
+      fallbackColorIndex: 4,
+      categoryInfluence: 0.12,
     },
     {
-      cx: 286,
-      cy: 332,
-      radius: 54,
-      inner: 13,
-      petals: 18,
-      colorIndex: 3,
-      opacity: 0.38,
-      stroke: 0.9,
-      role: "pale",
+      role: "pale-blue-spiro",
+      x: 314,
+      y: 404,
+      baseSize: 66,
+      color: "#b9d7ef",
+      fallbackColorIndex: 3,
+      categoryInfluence: 0.1,
     },
     {
-      cx: 324,
-      cy: 270,
-      radius: 38,
-      inner: 10,
-      petals: 9,
-      colorIndex: 0,
-      opacity: 0.46,
-      stroke: 0.85,
-      role: "bridge",
+      role: "small-center",
+      x: 364,
+      y: 336,
+      baseSize: 44,
+      color: "#6ea4ad",
+      fallbackColorIndex: 0,
+      categoryInfluence: 0.18,
     },
   ];
 
-  return oldPlacementBlueprint.map((blueprint, index) => {
-    const milestone = validMilestones[index % milestoneCount];
+  return roleBlueprints.map((blueprint, index) => {
+    const milestone = getMilestoneByRole(validMilestones, index);
     const importance = milestone ? clamp(milestone.importance, 1, 5) : 3;
-    const label = milestone?.label ?? "Milestone";
     const date = milestone?.date ?? primaryDate;
     const category = milestone?.category ?? "Other";
-    const localSeed = `${seed}${label}${date}${index}`;
+    const label = milestone?.label ?? "Milestone";
+    const dateSum = digitSum(date);
+    const localSeed = `${seed}${date}${label}${index}`;
 
-    const dateWeight = digitSum(date);
-    const categoryShift = categoryColorIndex[category] ?? index;
-    const jitterX = (seededValue(localSeed, 1) - 0.5) * 34;
-    const jitterY = (seededValue(localSeed, 2) - 0.5) * 34;
-    const importanceScale = 0.86 + importance * 0.075;
+    const driftX = (seededValue(localSeed, 2) - 0.5) * (blueprint.role === "dominant-ring" ? 32 : 54);
+    const driftY = (seededValue(localSeed, 3) - 0.5) * (blueprint.role === "dominant-ring" ? 30 : 48);
+    const importanceScale = 0.82 + importance * 0.07;
+    const categoryColor = colors[(categoryColorIndex[category] + blueprint.fallbackColorIndex) % colors.length];
 
     return {
-      ...blueprint,
-      cx: blueprint.cx + jitterX,
-      cy: blueprint.cy + jitterY,
-      radius: blueprint.radius * importanceScale + (dateWeight % 9),
-      inner: blueprint.inner + importance * 1.8 + (dateWeight % 5),
-      petals: blueprint.petals + (dateWeight % 8) + categoryShift,
-      color: colors[(blueprint.colorIndex + categoryShift) % colors.length],
-      opacity: Math.min(0.86, blueprint.opacity + importance * 0.018),
-      stroke: blueprint.stroke + importance * 0.04,
-      phase: (anchorSum + dateWeight + index * 13) / 9,
-      rotation: (anchorSum * (index + 1) + dateWeight * 7 + seededValue(localSeed, 3) * 90) % 360,
+      role: blueprint.role,
+      x: blueprint.x + driftX,
+      y: blueprint.y + driftY,
+      size: blueprint.baseSize * importanceScale + (dateSum % 8),
+      color: seededValue(localSeed, 4) < blueprint.categoryInfluence ? categoryColor : blueprint.color,
+      dateSum,
+      importance,
+      phase: (anchorSum + dateSum + index * 17) / 13,
+      rotate: (anchorSum * 9 + dateSum * 13 + seededValue(localSeed, 5) * 110) % 360,
     };
   });
 }
@@ -344,12 +433,12 @@ function ArtworkPreview({
   milestones: Milestone[];
   palette: Palette;
 }) {
-  const clusters = useMemo(
-    () => buildEarlierPlacementClusters(primaryDate, milestones, palette),
+  const nodes = useMemo(
+    () => buildReferenceLikeComposition(primaryDate, milestones, palette),
     [primaryDate, milestones, palette],
   );
 
-  const guideColor = palette.lines[3] || palette.accent;
+  const connectorPath = nodes.map((node, index) => `${index === 0 ? "M" : "L"} ${node.x.toFixed(1)} ${node.y.toFixed(1)}`).join(" ");
 
   return (
     <div className="preview-sheet-wrap">
@@ -359,69 +448,185 @@ function ArtworkPreview({
             <svg viewBox="0 0 640 640" className="art-svg full-art-svg" aria-label="Generated interpretive artwork preview">
               <rect x="0" y="0" width="640" height="640" fill="#ffffff" />
 
-              <g className="fibonacci-guides">
-                <circle cx="292" cy="320" r="104" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.13" />
-                <circle cx="330" cy="292" r="166" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.11" />
-                <circle cx="348" cy="276" r="256" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.09" />
-                <circle cx="356" cy="268" r="398" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.07" />
+              <g>
+                <circle cx="342" cy="312" r="112" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.16" />
+                <circle cx="354" cy="292" r="180" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.13" />
+                <circle cx="368" cy="276" r="292" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.105" />
+                <circle cx="382" cy="256" r="440" fill="none" stroke="#8bbdc9" strokeWidth="0.9" opacity="0.08" />
               </g>
 
               <path
-                d={`M ${clusters.map((cluster) => `${cluster.cx.toFixed(2)} ${cluster.cy.toFixed(2)}`).join(" L ")}`}
+                d={connectorPath}
                 fill="none"
-                stroke={palette.ink}
-                strokeOpacity="0.16"
-                strokeWidth="1.2"
-                strokeDasharray="7 13"
+                stroke="#8ea4b5"
+                strokeOpacity="0.32"
+                strokeWidth="1.35"
+                strokeDasharray="7 14"
               />
 
-              {clusters.map((cluster, index) => (
-                <g key={`${cluster.role}-${index}`} transform={`rotate(${cluster.rotation} ${cluster.cx} ${cluster.cy})`}>
-                  <polyline
-                    points={createEarlierSpiroPoints({
-                      cx: cluster.cx,
-                      cy: cluster.cy,
-                      outerRadius: cluster.radius,
-                      innerRadius: cluster.inner,
-                      petals: cluster.petals,
-                      phase: cluster.phase,
-                      steps: index === 0 ? 760 : 560,
-                    })}
-                    fill="none"
-                    stroke={cluster.color}
-                    strokeWidth={cluster.stroke}
-                    opacity={cluster.opacity}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+              {nodes.map((node) => {
+                if (node.role === "dominant-ring") {
+                  return (
+                    <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                      <polyline
+                        points={createSpiroLoopPath({
+                          cx: node.x,
+                          cy: node.y,
+                          outerRadius: node.size,
+                          innerRadius: node.size * 0.42,
+                          offsetRadius: node.size * 0.56,
+                          rotations: 15 + (node.dateSum % 5),
+                          steps: 1500,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="1.35"
+                        opacity="0.82"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <polyline
+                        points={createWovenRingPath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size * 0.38,
+                          weave: node.size * 0.08,
+                          lobes: 14 + (node.dateSum % 9),
+                          phase: node.phase,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="0.8"
+                        opacity="0.62"
+                      />
+                      <circle cx={node.x} cy={node.y} r="4" fill={node.color} opacity="0.82" />
+                    </g>
+                  );
+                }
 
-                  <polyline
-                    points={createEarlierSpiroPoints({
-                      cx: cluster.cx,
-                      cy: cluster.cy,
-                      outerRadius: cluster.radius * 0.66,
-                      innerRadius: cluster.inner * 0.52,
-                      petals: Math.max(6, Math.floor(cluster.petals / 2)),
-                      phase: cluster.phase + 1.618,
-                      steps: 380,
-                    })}
-                    fill="none"
-                    stroke={cluster.color}
-                    strokeWidth={Math.max(0.65, cluster.stroke - 0.28)}
-                    opacity={cluster.opacity * 0.52}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                if (node.role === "dark-angular") {
+                  return (
+                    <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                      <polyline
+                        points={createAngularSpiroPath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size,
+                          pointsCount: 31 + (node.dateSum % 7),
+                          skip: 11 + (node.dateSum % 5),
+                          wobble: 9 + node.importance * 2,
+                          phase: node.phase,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="1.25"
+                        opacity="0.86"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <polyline
+                        points={createWovenRingPath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size * 0.46,
+                          weave: node.size * 0.1,
+                          lobes: 9 + (node.dateSum % 8),
+                          phase: node.phase + 1.1,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="0.8"
+                        opacity="0.42"
+                      />
+                      <circle cx={node.x} cy={node.y} r="3.2" fill={node.color} opacity="0.84" />
+                    </g>
+                  );
+                }
 
-                  <circle
-                    cx={cluster.cx}
-                    cy={cluster.cy}
-                    r={2.2 + index * 0.18}
-                    fill={cluster.color}
-                    opacity={Math.min(0.8, cluster.opacity + 0.08)}
-                  />
-                </g>
-              ))}
+                if (node.role === "orange-flower") {
+                  return (
+                    <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                      <polyline
+                        points={createRosePath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size * 1.08,
+                          petals: 5 + (node.dateSum % 5),
+                          stretchX: 1.38,
+                          stretchY: 0.88,
+                          phase: node.phase,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="1.05"
+                        opacity="0.78"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <polyline
+                        points={createWovenRingPath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size * 0.42,
+                          weave: node.size * 0.1,
+                          lobes: 12 + (node.dateSum % 6),
+                          phase: node.phase,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="0.72"
+                        opacity="0.48"
+                      />
+                      <circle cx={node.x} cy={node.y} r="3" fill={node.color} opacity="0.7" />
+                    </g>
+                  );
+                }
+
+                if (node.role === "pale-blue-spiro") {
+                  return (
+                    <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                      <polyline
+                        points={createAngularSpiroPath({
+                          cx: node.x,
+                          cy: node.y,
+                          radius: node.size,
+                          pointsCount: 36 + (node.dateSum % 6),
+                          skip: 8 + (node.dateSum % 6),
+                          wobble: 5 + node.importance,
+                          phase: node.phase,
+                        })}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="1"
+                        opacity="0.48"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx={node.x} cy={node.y} r="3.2" fill={node.color} opacity="0.62" />
+                    </g>
+                  );
+                }
+
+                return (
+                  <g key={node.role} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                    <polyline
+                      points={createWovenRingPath({
+                        cx: node.x,
+                        cy: node.y,
+                        radius: node.size,
+                        weave: node.size * 0.22,
+                        lobes: 10 + (node.dateSum % 12),
+                        phase: node.phase,
+                      })}
+                      fill="none"
+                      stroke={node.color}
+                      strokeWidth="1"
+                      opacity="0.58"
+                    />
+                    <circle cx={node.x} cy={node.y} r="2.8" fill={node.color} opacity="0.7" />
+                  </g>
+                );
+              })}
             </svg>
           </div>
         </div>
