@@ -346,55 +346,15 @@ function buildReferenceLikeComposition(
   const colors = palette.lines;
 
   const roleBlueprints = [
-    {
-      role: "dominant-ring",
-      x: 430,
-      y: 224,
-      baseSize: 112,
-      color: "#f0c94f",
-      fallbackColorIndex: 2,
-      categoryInfluence: 0.18,
-    },
-    {
-      role: "dark-angular",
-      x: 190,
-      y: 314,
-      baseSize: 100,
-      color: "#20324a",
-      fallbackColorIndex: 1,
-      categoryInfluence: 0.08,
-    },
-    {
-      role: "orange-flower",
-      x: 470,
-      y: 442,
-      baseSize: 82,
-      color: "#df8749",
-      fallbackColorIndex: 4,
-      categoryInfluence: 0.12,
-    },
-    {
-      role: "pale-blue-spiro",
-      x: 314,
-      y: 404,
-      baseSize: 66,
-      color: "#b9d7ef",
-      fallbackColorIndex: 3,
-      categoryInfluence: 0.1,
-    },
-    {
-      role: "small-center",
-      x: 364,
-      y: 336,
-      baseSize: 44,
-      color: "#6ea4ad",
-      fallbackColorIndex: 0,
-      categoryInfluence: 0.18,
-    },
-  ];
+    { role: "dominant-ring", baseSize: 104, color: "#f0c94f", fallbackColorIndex: 2 },
+    { role: "dark-angular", baseSize: 96, color: "#20324a", fallbackColorIndex: 1 },
+    { role: "orange-flower", baseSize: 80, color: "#df8749", fallbackColorIndex: 4 },
+    { role: "pale-blue-spiro", baseSize: 66, color: "#b9d7ef", fallbackColorIndex: 3 },
+    { role: "small-center", baseSize: 48, color: "#6ea4ad", fallbackColorIndex: 0 },
+  ] as const;
 
-  return roleBlueprints.map((blueprint, index) => {
-    const milestone = getMilestoneByRole(validMilestones, index);
+  return validMilestones.map((milestone, index) => {
+    const blueprint = roleBlueprints[index % roleBlueprints.length];
     const importance = clamp(milestone.importance, 1, 5);
     const date = milestone.date;
     const category = milestone.category;
@@ -402,17 +362,23 @@ function buildReferenceLikeComposition(
     const dateSum = digitSum(date);
     const localSeed = `${seed}${date}${label}${index}`;
 
-    const driftX = (seededValue(localSeed, 2) - 0.5) * (blueprint.role === "dominant-ring" ? 32 : 54);
-    const driftY = (seededValue(localSeed, 3) - 0.5) * (blueprint.role === "dominant-ring" ? 30 : 48);
-    const importanceScale = 0.82 + importance * 0.07;
+    const dayOffset = daysBetween(primaryDate, date);
+    const angle = ((dayOffset % 360) + 360) % 360;
+    const baseRadius = validMilestones.length === 1
+      ? 146
+      : 88 + Math.min(180, Math.abs(dayOffset) * 0.18) + index * 8;
+    const jitterRadius = (seededValue(localSeed, 2) - 0.5) * 28;
+    const point = polarToCartesian(320, 320, baseRadius + jitterRadius, angle + seededValue(localSeed, 3) * 34 - 17);
+
+    const importanceScale = 0.8 + importance * 0.075;
     const categoryColor = colors[(categoryColorIndex[category] + blueprint.fallbackColorIndex) % colors.length];
 
     return {
       role: blueprint.role,
-      x: blueprint.x + driftX,
-      y: blueprint.y + driftY,
-      size: blueprint.baseSize * importanceScale + (dateSum % 8),
-      color: seededValue(localSeed, 4) < blueprint.categoryInfluence ? categoryColor : blueprint.color,
+      x: clamp(point.x, 112, 528),
+      y: clamp(point.y, 112, 528),
+      size: blueprint.baseSize * importanceScale + (dateSum % 7),
+      color: categoryColor || blueprint.color,
       dateSum,
       importance,
       phase: (anchorSum + dateSum + index * 17) / 13,
