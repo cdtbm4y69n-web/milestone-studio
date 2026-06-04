@@ -171,32 +171,63 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: numb
   };
 }
 
-function buildSpiroPath(
+function buildRosettePath(
+  cx: number,
+  cy: number,
+  radius: number,
+  amplitude: number,
+  petals: number,
+  twist: number,
+  points = 720,
+) {
+  const commands: string[] = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const t = (Math.PI * 2 * i) / points;
+    const wobble =
+      Math.sin(t * petals + twist) * amplitude +
+      Math.cos(t * (petals + 5) - twist) * amplitude * 0.28;
+    const r = radius + wobble;
+    const x = cx + Math.cos(t) * r;
+    const y = cy + Math.sin(t) * r;
+
+    commands.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+  }
+
+  return `${commands.join(' ')} Z`;
+}
+
+function buildSpiroFlowerPath(
   cx: number,
   cy: number,
   outerRadius: number,
   innerRadius: number,
-  offsetRadius: number,
+  lobeRadius: number,
   rotations: number,
-  points: number,
+  points = 920,
 ) {
-  const pts: string[] = [];
+  const commands: string[] = [];
 
   for (let i = 0; i <= points; i += 1) {
     const t = (Math.PI * 2 * rotations * i) / points;
-    const ratio = (outerRadius - innerRadius) / innerRadius;
+    const ratio = (outerRadius - innerRadius) / Math.max(innerRadius, 1);
     const x =
       cx +
       (outerRadius - innerRadius) * Math.cos(t) +
-      offsetRadius * Math.cos(ratio * t);
+      lobeRadius * Math.cos(ratio * t);
     const y =
       cy +
       (outerRadius - innerRadius) * Math.sin(t) -
-      offsetRadius * Math.sin(ratio * t);
-    pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+      lobeRadius * Math.sin(ratio * t);
+
+    commands.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
   }
 
-  return `${pts.join(' ')} Z`;
+  return commands.join(' ');
+}
+
+function labelDigitSeed(label: string, date: string) {
+  return digitSum(`${label}${date}`) || 8;
 }
 
 function generateArtworkNodes(
@@ -209,18 +240,22 @@ function generateArtworkNodes(
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (!validMilestones.length || !anchorDate) {
-    return [] as Array<{
-      id: number;
-      x: number;
-      y: number;
-      color: string;
-      strokeWidth: number;
-      opacity: number;
-      path: string;
-      orbitRadius: number;
-      ringColor: string;
-      importance: number;
-    }>;
+    return {
+      guideRings: [] as Array<{ cx: number; cy: number; r: number; color: string; opacity: number }>,
+      blooms: [] as Array<{
+        id: number;
+        x: number;
+        y: number;
+        color: string;
+        strokeWidth: number;
+        opacity: number;
+        mainPath: string;
+        innerPath: string;
+        rotate: number;
+        importance: number;
+      }>,
+      connectorPath: '',
+    };
   }
 
   const dates = [anchorDate, ...validMilestones.map((m) => m.date)].map((date) =>
@@ -229,44 +264,73 @@ function generateArtworkNodes(
   const minTime = Math.min(...dates);
   const maxTime = Math.max(...dates);
   const totalRange = Math.max(maxTime - minTime, 86400000 * 30);
+  const anchorSeed = digitSum(anchorDate);
 
-  const cx = 320;
-  const cy = 320;
-  const goldenAngle = 137.5;
+  const centerX = 320;
+  const centerY = 316;
+  const goldenAngle = 137.507764;
 
-  return validMilestones.map((milestone, index) => {
+  const basePositions = [
+    { x: 430, y: 222, scale: 1.55 }, // dominant upper-right bloom
+    { x: 220, y: 345, scale: 1.25 }, // dark left bloom
+    { x: 436, y: 422, scale: 0.96 }, // warm lower-right bloom
+    { x: 338, y: 366, scale: 0.84 }, // pale center bloom
+    { x: 284, y: 280, scale: 0.74 }, // light bridge bloom
+    { x: 506, y: 326, scale: 0.66 }, // outer accent
+    { x: 168, y: 248, scale: 0.68 }, // far-left accent
+  ];
+
+  const blooms = validMilestones.map((milestone, index) => {
     const time = new Date(milestone.date + 'T00:00:00').getTime();
     const normalizedTime = clamp((time - minTime) / totalRange, 0, 1);
-    const daysFromAnchor = Math.abs(daysBetween(anchorDate, milestone.date));
-    const normalizedAnchorDistance = clamp(daysFromAnchor / (totalRange / 86400000), 0, 1);
     const importance = clamp(milestone.importance, 1, 5);
+    const seed = labelDigitSeed(milestone.label, milestone.date);
+    const base = basePositions[index % basePositions.length];
 
-    const orbitRadius = 56 + normalizedTime * 150 + importance * 10;
-    const angle = index * goldenAngle + digitSum(milestone.date) * 3.5;
-    const { x, y } = polarToCartesian(cx, cy, orbitRadius * (0.68 + normalizedAnchorDistance * 0.32), angle);
+    const spiralDrift = (normalizedTime - 0.5) * 78;
+    const angle = index * goldenAngle + seed * 4.7 + anchorSeed;
+    const dateNudge = polarToCartesian(0, 0, 20 + normalizedTime * 34, angle);
+
+    const x = base.x + dateNudge.x + Math.cos(index + anchorSeed) * spiralDrift * 0.32;
+    const y = base.y + dateNudge.y + Math.sin(index * 1.7 + anchorSeed) * spiralDrift * 0.26;
 
     const color = palette.lines[categoryColorIndex[milestone.category] % palette.lines.length];
-    const petalsSeed = 8 + (digitSum(milestone.date) % 11);
-    const outerRadius = 12 + importance * 4 + (digitSum(milestone.label) % 5);
-    const innerRadius = Math.max(4, Math.round(outerRadius * (0.34 + ((index % 3) * 0.06))));
-    const offsetRadius = outerRadius * (0.42 + (petalsSeed % 5) * 0.035);
-    const rotations = 8 + (petalsSeed % 7) + importance;
-    const points = 380;
-    const path = buildSpiroPath(x, y, outerRadius, innerRadius, offsetRadius, rotations, points);
+
+    const outerRadius = (24 + importance * 8 + (seed % 9)) * base.scale;
+    const innerRadius = Math.max(8, outerRadius * (0.38 + (seed % 4) * 0.035));
+    const lobeRadius = outerRadius * (0.42 + importance * 0.035);
+    const rotations = 8 + importance * 2 + (seed % 7);
+
+    const rosetteRadius = outerRadius * (0.74 + (seed % 3) * 0.05);
+    const amplitude = outerRadius * (0.16 + importance * 0.018);
+    const petals = 9 + (seed % 18);
 
     return {
       id: milestone.id,
       x,
       y,
       color,
-      strokeWidth: 0.8 + importance * 0.18,
-      opacity: 0.55 + importance * 0.08,
-      path,
-      orbitRadius,
-      ringColor: color,
+      strokeWidth: 0.72 + importance * 0.16,
+      opacity: 0.48 + importance * 0.075,
+      mainPath: buildSpiroFlowerPath(x, y, outerRadius, innerRadius, lobeRadius, rotations),
+      innerPath: buildRosettePath(x, y, rosetteRadius, amplitude, petals, seed / 7),
+      rotate: (seed * 19 + normalizedTime * 110) % 360,
       importance,
     };
   });
+
+  const connectorPath = blooms
+    .map((bloom, index) => `${index === 0 ? 'M' : 'L'} ${bloom.x.toFixed(2)} ${bloom.y.toFixed(2)}`)
+    .join(' ');
+
+  const guideRings = [
+    { cx: centerX - 24, cy: centerY + 4, r: 132, color: palette.lines[3], opacity: 0.14 },
+    { cx: centerX + 16, cy: centerY - 22, r: 214, color: palette.lines[3], opacity: 0.11 },
+    { cx: centerX + 6, cy: centerY - 18, r: 318, color: palette.lines[3], opacity: 0.085 },
+    { cx: centerX + 64, cy: centerY - 20, r: 89, color: palette.lines[0], opacity: 0.12 },
+  ];
+
+  return { guideRings, blooms, connectorPath };
 }
 
 function ArtworkPreview({
@@ -284,91 +348,77 @@ function ArtworkPreview({
   milestones: Milestone[];
   palette: Palette;
 }) {
-  const nodes = useMemo(
+  const artwork = useMemo(
     () => generateArtworkNodes(milestones, primaryDate, palette),
     [milestones, primaryDate, palette],
   );
-
-  const faintRings = [110, 170, 230];
-  const anchorDigits = primaryDate ? primaryDate.replace(/-/g, ' · ') : '—';
 
   return (
     <div className="preview-sheet-wrap">
       <div className="frame-mockup">
         <div className="frame-inner-shadow">
           <div className="art-paper" style={{ background: palette.paper }}>
-            <div className="art-topline">
-              <span>{storyType.toUpperCase()}</span>
-              <span>{palette.name.toUpperCase()}</span>
-            </div>
+            <svg viewBox="0 0 640 640" className="art-svg full-art-svg" aria-label="Generated interpretive artwork preview">
+              <rect x="0" y="0" width="640" height="640" fill="#ffffff" />
 
-            <svg viewBox="0 0 640 640" className="art-svg" aria-label="Generated interpretive artwork preview">
-              {faintRings.map((r) => (
+              {artwork.guideRings.map((ring, index) => (
                 <circle
-                  key={r}
-                  cx="320"
-                  cy="320"
-                  r={r}
+                  key={`ring-${index}`}
+                  cx={ring.cx}
+                  cy={ring.cy}
+                  r={ring.r}
                   fill="none"
-                  stroke={palette.ink}
-                  strokeOpacity="0.08"
+                  stroke={ring.color}
+                  strokeOpacity={ring.opacity}
                   strokeWidth="1"
                 />
               ))}
 
-              {nodes.map((node) => (
-                <g key={node.id}>
-                  <circle
-                    cx={node.x}
-                    cy={node.y}
-                    r={node.importance * 2.1 + 2}
-                    fill={node.color}
-                    fillOpacity="0.12"
-                  />
-                  <path
-                    d={node.path}
-                    fill="none"
-                    stroke={node.color}
-                    strokeOpacity={node.opacity}
-                    strokeWidth={node.strokeWidth}
-                  />
-                </g>
-              ))}
+              {artwork.connectorPath && (
+                <path
+                  d={artwork.connectorPath}
+                  fill="none"
+                  stroke={palette.ink}
+                  strokeOpacity="0.18"
+                  strokeWidth="1.2"
+                  strokeDasharray="7 13"
+                />
+              )}
 
-              <circle cx="320" cy="320" r="3.8" fill={palette.ink} fillOpacity="0.45" />
-            </svg>
-
-            <div className="art-center-caption">{anchorDigits}</div>
-
-            <div className="art-title-block">
-              <h3>{title || 'Your Milestone Artwork'}</h3>
-              <p>{subtitle || 'Your story in dates'}</p>
-            </div>
-
-            <div className="milestone-summary">
-              <div className="summary-row">
-                <span>Anchor Date</span>
-                <span>{primaryDate || '—'}</span>
-              </div>
-              {milestones
-                .filter((m) => m.label.trim() && m.date)
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                .slice(0, 5)
-                .map((m) => (
-                  <div className="summary-row" key={m.id}>
-                    <span>{m.label}</span>
-                    <span>{m.date}</span>
-                  </div>
+              {artwork.blooms
+                .slice()
+                .sort((a, b) => a.importance - b.importance)
+                .map((node) => (
+                  <g key={node.id} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
+                    <path
+                      d={node.mainPath}
+                      fill="none"
+                      stroke={node.color}
+                      strokeOpacity={node.opacity}
+                      strokeWidth={node.strokeWidth}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d={node.innerPath}
+                      fill="none"
+                      stroke={node.color}
+                      strokeOpacity={Math.max(0.32, node.opacity - 0.22)}
+                      strokeWidth={Math.max(0.6, node.strokeWidth - 0.25)}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx={node.x} cy={node.y} r={2.4 + node.importance * 0.45} fill={node.color} fillOpacity="0.62" />
+                  </g>
                 ))}
-            </div>
-
-            <div className="frame-caption">FLOATING MAPLE FRAME · 20 × 20</div>
+            </svg>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 export default function App() {
   const [storyType, setStoryType] = useState<StoryType>('Family Timeline');
@@ -506,7 +556,7 @@ export default function App() {
         .preview-sheet-wrap { padding: 6px 4px 2px; }
         .frame-mockup {
           background: linear-gradient(145deg, #d7b185 0%, #b8844f 42%, #d5ad7d 100%);
-          border-radius: 30px; padding: 12px; box-shadow:
+          border-radius: 18px; padding: 10px; box-shadow:
             inset 0 0 0 1px rgba(117,72,27,.25),
             inset 0 8px 22px rgba(255,255,255,.26),
             0 18px 45px rgba(83,55,22,.14);
@@ -514,17 +564,18 @@ export default function App() {
         }
         .frame-inner-shadow {
           width: 100%; height: 100%; background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(255,255,255,.04));
-          border-radius: 22px; padding: 18px; box-shadow: inset 0 0 0 1px rgba(73,48,24,.14);
+          border-radius: 12px; padding: 16px; box-shadow: inset 0 0 0 1px rgba(73,48,24,.14);
         }
         .art-paper {
-          width:100%; height:100%; background:#fff; border-radius: 4px; box-shadow:
+          width:100%; height:100%; background:#fff; border-radius: 2px; box-shadow:
             0 0 0 16px rgba(255,255,255,.96),
             0 0 0 17px rgba(16,16,16,.04),
             inset 0 0 24px rgba(0,0,0,.02);
-          position: relative; overflow: hidden; padding: 28px 26px 22px;
+          position: relative; overflow: hidden; padding: 0;
         }
         .art-topline { display:flex; justify-content:space-between; align-items:center; font-size: 14px; letter-spacing: .18em; font-weight: 900; color:#9a6d37; }
-        .art-svg { width: 100%; height: calc(100% - 172px); display:block; margin-top: 12px; }
+        .art-svg { width: 100%; height: 100%; display:block; margin: 0; }
+        .full-art-svg { background: #ffffff; }
         .art-center-caption { text-align:center; margin-top: -8px; color:#201815; font-size: 18px; letter-spacing: .08em; }
         .art-title-block { text-align:center; margin: 10px 0 14px; }
         .art-title-block h3 { margin:0; font-size: 26px; line-height:1.1; }
