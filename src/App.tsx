@@ -419,37 +419,8 @@ function CreatorPage() {
               </div>
 
               <div className={`art-proof ${paletteClass(palette)}`}>
-                <div className="proof-meta">
-                  <span>{collection}</span>
-                  <span>{palette}</span>
-                </div>
-
                 <div className="proof-geometry spirograph-wrap">
                   <SpirographPreview seed={spiroSeed} palette={palette} milestoneCount={milestones.length} />
-                  <div className="encoded-date-line">{formatNumber(encodedNumber)}</div>
-                </div>
-
-                <div className="proof-title">
-                  <h2>{title || "Your Artwork Title"}</h2>
-                  <p>{subtitle || "A story in dates"}</p>
-                </div>
-
-                <div className="proof-dates">
-                  <div>
-                    <strong>Anchor Date</strong>
-                    <span>{primaryDate || "Add a date"}</span>
-                  </div>
-
-                  {previewMilestones.map((milestone) => (
-                    <div key={milestone.id}>
-                      <strong>{milestone.label || "Milestone"}</strong>
-                      <span>{milestone.date || "Add a date"}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="proof-footer">
-                  <span>{finish}</span>
                 </div>
               </div>
 
@@ -1466,8 +1437,8 @@ function Styles() {
         background:
           radial-gradient(circle at 48% 38%, rgba(255,255,255,0.96), rgba(238,238,236,0.92) 58%, rgba(222,222,220,0.95) 100%);
         box-shadow: none;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        place-items: center;
         overflow: hidden;
       }
 
@@ -1535,9 +1506,12 @@ function Styles() {
       .proof-geometry {
         position: relative;
         z-index: 2;
-        width: min(68%, 330px);
-        height: 270px;
-        margin: 46px auto 20px;
+        width: min(72%, 360px);
+        aspect-ratio: 1 / 1;
+        height: auto;
+        margin: 0 auto;
+        display: grid;
+        place-items: center;
       }
 
       .spirograph-wrap {
@@ -1737,9 +1711,10 @@ function Styles() {
         }
 
         .proof-geometry {
-          width: 72%;
-          height: 220px;
-          margin-top: 34px;
+          width: 74%;
+          aspect-ratio: 1 / 1;
+          height: auto;
+          margin: 0 auto;
         }
 
         .encoded-date-line {
