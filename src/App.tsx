@@ -107,6 +107,31 @@ const categoryColorIndex: Record<MilestoneCategory, number> = {
   Other: 4,
 };
 
+const milestoneOptions: Array<{ label: string; category: MilestoneCategory; defaultImportance: number }> = [
+  { label: 'Wedding Day', category: 'Wedding', defaultImportance: 5 },
+  { label: 'Anniversary', category: 'Wedding', defaultImportance: 4 },
+  { label: 'Engagement', category: 'Wedding', defaultImportance: 4 },
+  { label: 'First Date', category: 'Wedding', defaultImportance: 3 },
+  { label: 'Birth', category: 'Baby', defaultImportance: 5 },
+  { label: 'New Baby', category: 'Baby', defaultImportance: 5 },
+  { label: 'First Birthday', category: 'Baby', defaultImportance: 4 },
+  { label: 'First Home', category: 'Home', defaultImportance: 4 },
+  { label: 'Move-In Day', category: 'Home', defaultImportance: 4 },
+  { label: 'New Home', category: 'Home', defaultImportance: 4 },
+  { label: 'Graduation', category: 'Personal', defaultImportance: 4 },
+  { label: 'Career Milestone', category: 'Personal', defaultImportance: 3 },
+  { label: 'Retirement', category: 'Personal', defaultImportance: 4 },
+  { label: 'Family Vacation', category: 'Family', defaultImportance: 3 },
+  { label: 'Family Reunion', category: 'Family', defaultImportance: 3 },
+  { label: 'Memorial', category: 'Family', defaultImportance: 5 },
+  { label: 'Major Achievement', category: 'Personal', defaultImportance: 4 },
+  { label: 'Custom Milestone', category: 'Other', defaultImportance: 3 },
+];
+
+function getMilestoneOption(label: string) {
+  return milestoneOptions.find((option) => option.label === label) ?? milestoneOptions[milestoneOptions.length - 1];
+}
+
 const defaultMilestones: Milestone[] = [
   { id: 1, label: 'Wedding Day', date: '2010-06-12', importance: 5, category: 'Wedding' },
   { id: 2, label: 'Lucas Born', date: '2012-03-22', importance: 5, category: 'Baby' },
@@ -365,6 +390,23 @@ export default function App() {
     setMilestones((current) => current.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   }
 
+  function updateMilestoneLabel(id: number, label: string) {
+    const selected = getMilestoneOption(label);
+
+    setMilestones((current) =>
+      current.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              label,
+              category: selected.category,
+              importance: selected.defaultImportance,
+            }
+          : m,
+      ),
+    );
+  }
+
   function addMilestone() {
     const today = new Date();
     const date = today.toISOString().slice(0, 10);
@@ -372,7 +414,7 @@ export default function App() {
       ...current,
       {
         id: Date.now(),
-        label: 'New Milestone',
+        label: 'Custom Milestone',
         date,
         importance: 3,
         category: preset.suggestions[0] ?? 'Other',
@@ -629,7 +671,7 @@ export default function App() {
                   <div className="section-index">3</div>
                   <div>
                     <h2>Add milestone dates</h2>
-                    <div className="panel-sub">Each milestone affects the artwork. Time influences placement, importance controls scale, and category drives color behavior.</div>
+                    <div className="panel-sub">Each milestone affects the artwork. Time influences placement, importance controls scale, and milestone type drives color behavior.</div>
                   </div>
                 </div>
 
@@ -644,12 +686,17 @@ export default function App() {
                       <div className="milestone-num">{index + 1}</div>
 
                       <div className="field">
-                        <label>Label</label>
-                        <input
+                        <label>Milestone</label>
+                        <select
                           value={milestone.label}
-                          onChange={(e) => updateMilestone(milestone.id, { label: e.target.value })}
-                          placeholder="Wedding Day"
-                        />
+                          onChange={(e) => updateMilestoneLabel(milestone.id, e.target.value)}
+                        >
+                          {milestoneOptions.map((option) => (
+                            <option key={option.label} value={option.label}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div className="field">
@@ -723,7 +770,7 @@ export default function App() {
                 <ul>
                   <li><strong>Date:</strong> affects where each form sits in the composition.</li>
                   <li><strong>Importance:</strong> affects size, density, and prominence.</li>
-                  <li><strong>Category:</strong> affects the line color used for that milestone.</li>
+                  <li><strong>Milestone type:</strong> affects the line color used for that moment.</li>
                   <li><strong>Anchor date:</strong> acts as the center point the overall composition responds to.</li>
                 </ul>
               </div>
