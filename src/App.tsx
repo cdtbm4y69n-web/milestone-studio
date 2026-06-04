@@ -425,7 +425,7 @@ function CreatorPage() {
                 </div>
 
                 <div className="proof-geometry spirograph-wrap">
-                  <SpirographPreview seed={spiroSeed} />
+                  <SpirographPreview seed={spiroSeed} palette={palette} milestoneCount={milestones.length} />
                   <div className="proof-number">{formatNumber(encodedNumber)}</div>
                 </div>
 
@@ -581,7 +581,7 @@ function dateSeed(primaryDate: string, milestones: Milestone[]) {
     .join("")
     .replace(/\D/g, "");
 
-  return source || "112358132134";
+  return source || "1123581321345589";
 }
 
 function fibonacciValue(index: number) {
@@ -589,78 +589,214 @@ function fibonacciValue(index: number) {
   return sequence[index % sequence.length];
 }
 
-function generateSpiroPaths(seed: string) {
-  const digits = seed.padEnd(18, "1123581321345589").split("").map((d) => Number(d) || 1);
-  const sum = digitSum(seed);
-  const paths = [];
+function createSpiroPoints({
+  cx,
+  cy,
+  outerRadius,
+  innerRadius,
+  petals,
+  phase,
+  steps = 420,
+}: {
+  cx: number;
+  cy: number;
+  outerRadius: number;
+  innerRadius: number;
+  petals: number;
+  phase: number;
+  steps?: number;
+}) {
+  const points: string[] = [];
 
-  for (let i = 0; i < 9; i += 1) {
-    const fib = fibonacciValue(i + digits[i]);
-    const radius = 42 + i * 18 + (digits[i] % 5);
-    const wobble = 8 + digits[i + 1] * 2;
-    const rotation = (sum * (i + 1) + fib * 7) % 360;
-    const opacity = 0.18 + i * 0.035;
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (Math.PI * 2 * i) / steps;
+    const r =
+      outerRadius +
+      Math.sin(t * petals + phase) * innerRadius +
+      Math.cos(t * (petals + 3) - phase) * (innerRadius * 0.38);
 
-    paths.push({ radius, wobble, rotation, opacity, fib });
+    const x = cx + Math.cos(t) * r;
+    const y = cy + Math.sin(t) * r;
+
+    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
   }
 
-  return paths;
+  return points.join(" ");
 }
 
-function SpirographPreview({ seed }: { seed: string }) {
-  const paths = generateSpiroPaths(seed);
+function SpirographPreview({
+  seed,
+  palette,
+  milestoneCount,
+}: {
+  seed: string;
+  palette: string;
+  milestoneCount: number;
+}) {
+  const digits = seed.padEnd(24, "1123581321345589").split("").map((d) => Number(d) || 1);
+  const sum = digitSum(seed);
+  const paletteColors = getSpiroPalette(palette);
+
+  const clusters = [
+    {
+      cx: 198 + digits[0] * 2,
+      cy: 155 + digits[1],
+      radius: 62 + digits[2] * 2,
+      inner: 14 + digits[3],
+      petals: 22 + fibonacciValue(digits[4]) % 16,
+      color: paletteColors[0],
+      opacity: 0.7,
+      stroke: 1.05,
+      phase: sum / 8,
+    },
+    {
+      cx: 126 + digits[5] * 3,
+      cy: 224 + digits[6],
+      radius: 54 + digits[7] * 2,
+      inner: 18 + digits[8],
+      petals: 12 + fibonacciValue(digits[9]) % 10,
+      color: paletteColors[1],
+      opacity: 0.68,
+      stroke: 1.0,
+      phase: sum / 11,
+    },
+    {
+      cx: 278 - digits[10] * 2,
+      cy: 276 - digits[11],
+      radius: 48 + digits[12] * 2,
+      inner: 16 + digits[13],
+      petals: 9 + fibonacciValue(digits[14]) % 9,
+      color: paletteColors[2],
+      opacity: 0.75,
+      stroke: 1.0,
+      phase: sum / 13,
+    },
+    {
+      cx: 214 + digits[15],
+      cy: 236 - digits[16] * 2,
+      radius: 36 + milestoneCount * 4,
+      inner: 9 + digits[17],
+      petals: 7 + fibonacciValue(digits[18]) % 8,
+      color: paletteColors[3],
+      opacity: 0.48,
+      stroke: 0.9,
+      phase: sum / 15,
+    },
+    {
+      cx: 210,
+      cy: 205,
+      radius: 130 + digits[19] * 4,
+      inner: 6 + milestoneCount,
+      petals: 3 + (digits[20] % 5),
+      color: paletteColors[4],
+      opacity: 0.28,
+      stroke: 0.85,
+      phase: sum / 21,
+    },
+  ];
 
   return (
-    <svg className="spirograph-svg" viewBox="0 0 420 420" role="img" aria-label="Date-generated spirograph artwork preview">
+    <svg className="spirograph-svg layered-spirograph" viewBox="0 0 420 420" role="img" aria-label="Layered date-generated spirograph artwork preview">
       <defs>
-        <radialGradient id="spiroGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(31,26,23,0.12)" />
-          <stop offset="70%" stopColor="rgba(31,26,23,0.025)" />
-          <stop offset="100%" stopColor="rgba(31,26,23,0)" />
+        <radialGradient id="softPaperGlow" cx="50%" cy="45%" r="65%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
+          <stop offset="55%" stopColor="rgba(255,255,255,0.16)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
         </radialGradient>
       </defs>
 
-      <circle cx="210" cy="210" r="190" fill="url(#spiroGlow)" />
+      <circle cx="210" cy="210" r="196" fill="url(#softPaperGlow)" />
 
-      {paths.map((path, index) => {
-        const points = [];
-        const loops = 144;
-        const digit = Number(seed[index % seed.length]) || 1;
-
-        for (let step = 0; step <= loops; step += 1) {
-          const t = (Math.PI * 2 * step) / loops;
-          const fibPull = path.fib / 13;
-          const x =
-            210 +
-            Math.cos(t * (2 + (digit % 4))) * path.radius +
-            Math.cos(t * (5 + index)) * path.wobble * fibPull;
-          const y =
-            210 +
-            Math.sin(t * (3 + (digit % 5))) * path.radius +
-            Math.sin(t * (4 + index)) * path.wobble * fibPull;
-
-          points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
-        }
-
-        return (
-          <polyline
-            key={index}
-            points={points.join(" ")}
+      <g className="fibonacci-guides">
+        {[55, 89, 144, 233].map((radius, index) => (
+          <circle
+            key={radius}
+            cx={190 + index * 7}
+            cy={205 - index * 5}
+            r={radius}
             fill="none"
-            stroke="currentColor"
-            strokeWidth={index % 3 === 0 ? 1.35 : 0.9}
-            opacity={path.opacity}
-            transform={`rotate(${path.rotation} 210 210)`}
+            stroke={paletteColors[4]}
+            strokeWidth="0.7"
+            opacity={0.13 - index * 0.015}
           />
-        );
-      })}
+        ))}
+      </g>
 
-      <circle cx="210" cy="210" r="58" className="spiro-core" />
-      <circle cx="210" cy="210" r="85" className="spiro-guide" />
-      <circle cx="210" cy="210" r="130" className="spiro-guide" />
-      <circle cx="210" cy="210" r="176" className="spiro-guide" />
+      {clusters.map((cluster, index) => (
+        <g key={index} transform={`rotate(${(sum * (index + 1) + fibonacciValue(index) * 9) % 360} ${cluster.cx} ${cluster.cy})`}>
+          <polyline
+            points={createSpiroPoints({
+              cx: cluster.cx,
+              cy: cluster.cy,
+              outerRadius: cluster.radius,
+              innerRadius: cluster.inner,
+              petals: cluster.petals,
+              phase: cluster.phase,
+            })}
+            fill="none"
+            stroke={cluster.color}
+            strokeWidth={cluster.stroke}
+            opacity={cluster.opacity}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          <polyline
+            points={createSpiroPoints({
+              cx: cluster.cx,
+              cy: cluster.cy,
+              outerRadius: cluster.radius * 0.72,
+              innerRadius: cluster.inner * 0.55,
+              petals: Math.max(5, Math.floor(cluster.petals / 2)),
+              phase: cluster.phase + 1.618,
+              steps: 300,
+            })}
+            fill="none"
+            stroke={cluster.color}
+            strokeWidth="0.75"
+            opacity={cluster.opacity * 0.45}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          <circle cx={cluster.cx} cy={cluster.cy} r="2.8" fill={cluster.color} opacity={Math.min(0.85, cluster.opacity + 0.1)} />
+        </g>
+      ))}
+
+      <g className="date-pin-group">
+        {digits.slice(0, 9).map((digit, index) => {
+          const angle = (Math.PI * 2 * index) / 9 + sum / 100;
+          const radius = 24 + fibonacciValue(index + digit) * 0.7;
+          const x = 210 + Math.cos(angle) * radius;
+          const y = 210 + Math.sin(angle) * radius;
+
+          return (
+            <circle
+              key={index}
+              cx={x}
+              cy={y}
+              r={index % 3 === 0 ? 2.5 : 1.8}
+              fill={paletteColors[index % paletteColors.length]}
+              opacity="0.62"
+            />
+          );
+        })}
+      </g>
     </svg>
   );
+}
+
+function getSpiroPalette(palette: string) {
+  const palettes: Record<string, string[]> = {
+    "Gallery Modern": ["#d6aa31", "#1e3147", "#dd7f45", "#9cc4dd", "#7fa0aa"],
+    "Warm Neutral": ["#c99556", "#8f6238", "#d9ba87", "#9f8b76", "#6f6258"],
+    "Classic Black & Cream": ["#1f1a17", "#55504a", "#a9a197", "#d2c7b7", "#786f65"],
+    "Sage & Sand": ["#8d9a69", "#5f6f55", "#d1b177", "#b2bea2", "#78909a"],
+    "Soft Blue": ["#7fa6c1", "#24425f", "#bed4e6", "#ddbb67", "#91aebd"],
+    "Rose Clay": ["#b56f65", "#864a44", "#d7a38f", "#d6b85f", "#8aa0a6"],
+  };
+
+  return palettes[palette] || palettes["Gallery Modern"];
 }
 
 
@@ -1319,7 +1455,7 @@ function Styles() {
       }
 
       .art-proof {
-        min-height: 610px;
+        min-height: 640px;
         border-radius: 28px;
         padding: 32px;
         border: 13px solid #d0a16e;
@@ -1372,9 +1508,9 @@ function Styles() {
 
       .proof-geometry {
         position: relative;
-        width: 320px;
-        height: 320px;
-        margin: 24px auto 24px;
+        width: min(100%, 440px);
+        height: 360px;
+        margin: 10px auto 18px;
       }
 
       .spirograph-wrap {
@@ -1389,15 +1525,16 @@ function Styles() {
         overflow: visible;
       }
 
-      .spiro-core {
-        fill: var(--ink);
+      .layered-spirograph {
+        color: rgba(31, 26, 23, 0.9);
       }
 
-      .spiro-guide {
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 0.65;
-        opacity: 0.12;
+      .fibonacci-guides {
+        mix-blend-mode: multiply;
+      }
+
+      .date-pin-group {
+        mix-blend-mode: multiply;
       }
 
       .proof-number {
@@ -1555,14 +1692,16 @@ function Styles() {
         }
 
         .proof-geometry {
-          width: 250px;
-          height: 250px;
+          width: 100%;
+          height: 280px;
         }
 
         .proof-number {
-          width: 104px;
-          height: 104px;
-          font-size: 12px;
+          right: 10px;
+          bottom: 8px;
+          min-width: 116px;
+          height: 34px;
+          font-size: 10px;
         }
       }
     `}</style>
