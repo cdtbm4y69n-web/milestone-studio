@@ -820,10 +820,10 @@ export default function App() {
           </div>
 
           <div className="hero-buttons">
-            <a href="/create" className="btn btn-primary">
+            <a href="#start" className="btn btn-primary">
               Create Your Artwork
             </a>
-            <a href="/collections" className="btn btn-secondary">
+            <a href="#collections" className="btn btn-secondary">
               Browse Collections
             </a>
           </div>
