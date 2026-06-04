@@ -1461,13 +1461,11 @@ function Styles() {
         aspect-ratio: 1 / 1;
         min-height: 0;
         border-radius: 0;
-        padding: 56px;
-        border: 10px solid #a98455;
-        background: #ffffff;
-        box-shadow:
-          0 0 0 1px rgba(80, 58, 38, 0.28),
-          0 3px 7px rgba(31, 26, 23, 0.22),
-          0 18px 48px rgba(31, 26, 23, 0.20);
+        padding: 74px;
+        border: 0;
+        background:
+          radial-gradient(circle at 48% 38%, rgba(255,255,255,0.96), rgba(238,238,236,0.92) 58%, rgba(222,222,220,0.95) 100%);
+        box-shadow: none;
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -1476,20 +1474,27 @@ function Styles() {
       .art-proof::before {
         content: "";
         position: absolute;
-        inset: -58px;
-        z-index: -2;
-        background:
-          radial-gradient(circle at 50% 40%, rgba(255,255,255,0.95), rgba(238,238,236,0.7) 48%, rgba(224,224,222,0.85) 100%);
+        inset: 50px;
+        z-index: 0;
+        background: #ffffff;
+        border: 5px solid #8f7656;
+        box-shadow:
+          0 0 0 1px rgba(55, 43, 30, 0.22),
+          0 2px 2px rgba(255, 255, 255, 0.65) inset,
+          3px 4px 8px rgba(31, 26, 23, 0.24),
+          10px 14px 28px rgba(31, 26, 23, 0.10);
       }
 
       .art-proof::after {
         content: "";
         position: absolute;
-        inset: 10px;
-        border: 1px solid rgba(31, 26, 23, 0.12);
+        inset: 60px;
+        z-index: 0;
+        border: 1px solid rgba(31, 26, 23, 0.10);
+        background: #ffffff;
         box-shadow:
-          inset 0 0 0 12px rgba(255,255,255,1),
-          inset 0 0 16px rgba(31, 26, 23, 0.06);
+          inset 0 0 0 1px rgba(255,255,255,0.92),
+          inset 0 0 16px rgba(31,26,23,0.035);
         pointer-events: none;
       }
 
@@ -1514,21 +1519,25 @@ function Styles() {
       }
 
       .proof-meta {
+        position: relative;
+        z-index: 2;
         display: flex;
         justify-content: space-between;
         gap: 12px;
         color: var(--maple-dark);
         text-transform: uppercase;
         letter-spacing: 0.12em;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 900;
+        padding: 0 2px;
       }
 
       .proof-geometry {
         position: relative;
-        width: min(78%, 390px);
-        height: 330px;
-        margin: 34px auto 24px;
+        z-index: 2;
+        width: min(68%, 330px);
+        height: 270px;
+        margin: 46px auto 20px;
       }
 
       .spirograph-wrap {
@@ -1545,7 +1554,7 @@ function Styles() {
 
       .layered-spirograph {
         color: rgba(31, 26, 23, 0.92);
-        filter: saturate(0.96);
+        filter: saturate(1.02);
       }
 
       .fibonacci-guides {
@@ -1576,36 +1585,40 @@ function Styles() {
       }
 
       .proof-title {
+        position: relative;
+        z-index: 2;
         text-align: center;
-        margin-top: 4px;
+        margin-top: 0;
       }
 
       .proof-title h2 {
         margin: 0;
-        font-size: 28px;
+        font-size: 24px;
         line-height: 1;
         letter-spacing: -0.045em;
       }
 
       .proof-title p {
-        margin: 7px 0 0;
+        margin: 6px 0 0;
         color: var(--muted);
-        font-size: 13px;
+        font-size: 11px;
       }
 
       .proof-dates {
+        position: relative;
+        z-index: 2;
         margin-top: auto;
         display: grid;
-        gap: 5px;
+        gap: 4px;
       }
 
       .proof-dates div {
         display: flex;
         justify-content: space-between;
         gap: 14px;
-        padding: 5px 0;
-        border-bottom: 1px solid rgba(31, 26, 23, 0.07);
-        font-size: 11px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(31, 26, 23, 0.06);
+        font-size: 10px;
       }
 
       .proof-dates strong { color: var(--ink); }
@@ -1613,10 +1626,12 @@ function Styles() {
       .proof-dates span { color: var(--muted); }
 
       .proof-footer {
+        position: relative;
+        z-index: 2;
         text-align: center;
-        margin-top: 13px;
+        margin-top: 10px;
         color: var(--maple-dark);
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.12em;
@@ -1709,13 +1724,22 @@ function Styles() {
 
         .art-proof {
           min-height: 0;
-          padding: 32px;
-          border-width: 8px;
+          padding: 50px;
+        }
+
+        .art-proof::before {
+          inset: 32px;
+          border-width: 4px;
+        }
+
+        .art-proof::after {
+          inset: 40px;
         }
 
         .proof-geometry {
-          width: 82%;
-          height: 250px;
+          width: 72%;
+          height: 220px;
+          margin-top: 34px;
         }
 
         .encoded-date-line {
