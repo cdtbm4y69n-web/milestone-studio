@@ -180,6 +180,7 @@ function CreatorPage() {
     return numbers.padEnd(12, "0").slice(0, 12);
   }, [primaryDate, milestones]);
 
+  const spiroSeed = dateSeed(primaryDate, milestones);
   const price = getPrice(size, finish);
 
   const previewMilestones = milestones.filter((item) => item.label || item.date).slice(0, 6);
@@ -223,9 +224,9 @@ function CreatorPage() {
             <div>
               <p className="eyebrow">Artwork builder</p>
               <h1>Create your custom milestone artwork.</h1>
-              <p>
+              <p className="compact-intro">
                 Add the dates and details that shaped the story. The preview updates
-                as you build, so the customer always understands what they are creating.
+                as you build.
               </p>
             </div>
 
@@ -411,7 +412,7 @@ function CreatorPage() {
             <div className="preview-shell">
               <div className="preview-topline">
                 <div>
-                  <p className="eyebrow">Live proof</p>
+                  <p className="eyebrow">Artwork Preview</p>
                   <strong>{size} · {finish}</strong>
                 </div>
                 <span>${price}</span>
@@ -423,11 +424,8 @@ function CreatorPage() {
                   <span>{palette}</span>
                 </div>
 
-                <div className="proof-geometry">
-                  <div className="shape shape-one" />
-                  <div className="shape shape-two" />
-                  <div className="shape shape-three" />
-                  <div className="shape shape-four" />
+                <div className="proof-geometry spirograph-wrap">
+                  <SpirographPreview seed={spiroSeed} />
                   <div className="proof-number">{formatNumber(encodedNumber)}</div>
                 </div>
 
@@ -572,6 +570,99 @@ function getPrice(size: string, finish: string) {
 
   return (baseBySize[size] || 129) + (finishAdd[finish] || 0);
 }
+
+
+function digitSum(value: string) {
+  return value.split("").reduce((sum, char) => sum + (Number(char) || 0), 0);
+}
+
+function dateSeed(primaryDate: string, milestones: Milestone[]) {
+  const source = [primaryDate, ...milestones.map((m) => m.date)]
+    .join("")
+    .replace(/\D/g, "");
+
+  return source || "112358132134";
+}
+
+function fibonacciValue(index: number) {
+  const sequence = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+  return sequence[index % sequence.length];
+}
+
+function generateSpiroPaths(seed: string) {
+  const digits = seed.padEnd(18, "1123581321345589").split("").map((d) => Number(d) || 1);
+  const sum = digitSum(seed);
+  const paths = [];
+
+  for (let i = 0; i < 9; i += 1) {
+    const fib = fibonacciValue(i + digits[i]);
+    const radius = 42 + i * 18 + (digits[i] % 5);
+    const wobble = 8 + digits[i + 1] * 2;
+    const rotation = (sum * (i + 1) + fib * 7) % 360;
+    const opacity = 0.18 + i * 0.035;
+
+    paths.push({ radius, wobble, rotation, opacity, fib });
+  }
+
+  return paths;
+}
+
+function SpirographPreview({ seed }: { seed: string }) {
+  const paths = generateSpiroPaths(seed);
+
+  return (
+    <svg className="spirograph-svg" viewBox="0 0 420 420" role="img" aria-label="Date-generated spirograph artwork preview">
+      <defs>
+        <radialGradient id="spiroGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(31,26,23,0.12)" />
+          <stop offset="70%" stopColor="rgba(31,26,23,0.025)" />
+          <stop offset="100%" stopColor="rgba(31,26,23,0)" />
+        </radialGradient>
+      </defs>
+
+      <circle cx="210" cy="210" r="190" fill="url(#spiroGlow)" />
+
+      {paths.map((path, index) => {
+        const points = [];
+        const loops = 144;
+        const digit = Number(seed[index % seed.length]) || 1;
+
+        for (let step = 0; step <= loops; step += 1) {
+          const t = (Math.PI * 2 * step) / loops;
+          const fibPull = path.fib / 13;
+          const x =
+            210 +
+            Math.cos(t * (2 + (digit % 4))) * path.radius +
+            Math.cos(t * (5 + index)) * path.wobble * fibPull;
+          const y =
+            210 +
+            Math.sin(t * (3 + (digit % 5))) * path.radius +
+            Math.sin(t * (4 + index)) * path.wobble * fibPull;
+
+          points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+        }
+
+        return (
+          <polyline
+            key={index}
+            points={points.join(" ")}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={index % 3 === 0 ? 1.35 : 0.9}
+            opacity={path.opacity}
+            transform={`rotate(${path.rotation} 210 210)`}
+          />
+        );
+      })}
+
+      <circle cx="210" cy="210" r="58" className="spiro-core" />
+      <circle cx="210" cy="210" r="85" className="spiro-guide" />
+      <circle cx="210" cy="210" r="130" className="spiro-guide" />
+      <circle cx="210" cy="210" r="176" className="spiro-guide" />
+    </svg>
+  );
+}
+
 
 function Styles() {
   return (
@@ -883,7 +974,7 @@ function Styles() {
       .final-cta .primary-button { margin-top: 28px; }
 
       .creator-main {
-        padding: 136px 7% 90px;
+        padding: 112px 7% 72px;
       }
 
       .back-link {
@@ -896,13 +987,22 @@ function Styles() {
 
       .creator-hero-grid {
         display: grid;
-        grid-template-columns: 1fr 260px;
-        gap: 28px;
+        grid-template-columns: 1fr 250px;
+        gap: 24px;
         align-items: end;
-        margin-bottom: 38px;
+        margin-bottom: 24px;
       }
 
-      .creator-hero h1 { max-width: 940px; }
+      .creator-hero h1 {
+        max-width: 900px;
+        font-size: clamp(42px, 5vw, 72px);
+      }
+
+      .compact-intro {
+        max-width: 780px;
+        margin-top: 18px;
+        margin-bottom: 0;
+      }
 
       .mini-summary-card {
         padding: 22px;
@@ -1219,7 +1319,7 @@ function Styles() {
       }
 
       .art-proof {
-        min-height: 660px;
+        min-height: 610px;
         border-radius: 28px;
         padding: 32px;
         border: 13px solid #d0a16e;
@@ -1272,29 +1372,40 @@ function Styles() {
 
       .proof-geometry {
         position: relative;
-        width: 300px;
-        height: 300px;
-        margin: 48px auto 34px;
+        width: 320px;
+        height: 320px;
+        margin: 24px auto 24px;
       }
 
-      .shape {
+      .spirograph-wrap {
+        color: rgba(31, 26, 23, 0.92);
+      }
+
+      .spirograph-svg {
         position: absolute;
         inset: 0;
-        border: 1px solid rgba(31, 26, 23, 0.24);
-        border-radius: 49% 51% 44% 56%;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
       }
 
-      .shape-one { transform: rotate(11deg); }
-      .shape-two { transform: rotate(62deg) scale(0.84); }
-      .shape-three { transform: rotate(119deg) scale(0.66); }
-      .shape-four { transform: rotate(160deg) scale(0.48); }
+      .spiro-core {
+        fill: var(--ink);
+      }
+
+      .spiro-guide {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 0.65;
+        opacity: 0.12;
+      }
 
       .proof-number {
         position: absolute;
         inset: 50%;
         transform: translate(-50%, -50%);
-        width: 138px;
-        height: 138px;
+        width: 118px;
+        height: 118px;
         border-radius: 50%;
         display: grid;
         place-items: center;
@@ -1302,7 +1413,7 @@ function Styles() {
         text-align: center;
         background: var(--ink);
         color: var(--cream);
-        font-size: 15px;
+        font-size: 13px;
         line-height: 1.3;
         letter-spacing: 0.06em;
         font-weight: 900;
@@ -1444,14 +1555,14 @@ function Styles() {
         }
 
         .proof-geometry {
-          width: 230px;
-          height: 230px;
+          width: 250px;
+          height: 250px;
         }
 
         .proof-number {
-          width: 118px;
-          height: 118px;
-          font-size: 13px;
+          width: 104px;
+          height: 104px;
+          font-size: 12px;
         }
       }
     `}</style>
