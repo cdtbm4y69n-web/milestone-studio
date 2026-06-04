@@ -162,7 +162,7 @@ function CreatorPage() {
   const [subtitle, setSubtitle] = useState("Our story in dates");
   const [primaryDate, setPrimaryDate] = useState("2010-06-12");
   const [palette, setPalette] = useState("Gallery Modern");
-  const [size, setSize] = useState("16 x 16");
+  const [size, setSize] = useState("20 x 20");
   const [finish, setFinish] = useState("Floating Maple Frame");
   const [milestones, setMilestones] = useState<Milestone[]>([
     { id: 1, label: "Wedding Day", date: "2010-06-12" },
@@ -426,7 +426,7 @@ function CreatorPage() {
 
                 <div className="proof-geometry spirograph-wrap">
                   <SpirographPreview seed={spiroSeed} palette={palette} milestoneCount={milestones.length} />
-                  <div className="proof-number">{formatNumber(encodedNumber)}</div>
+                  <div className="encoded-date-line">{formatNumber(encodedNumber)}</div>
                 </div>
 
                 <div className="proof-title">
@@ -1455,43 +1455,69 @@ function Styles() {
       }
 
       .art-proof {
-        min-height: 640px;
-        border-radius: 28px;
-        padding: 32px;
-        border: 13px solid #d0a16e;
-        background:
-          radial-gradient(circle at 50% 28%, rgba(184, 137, 87, 0.16), transparent 37%),
-          #fffaf2;
-        box-shadow: inset 0 0 0 1px rgba(31, 26, 23, 0.08);
+        position: relative;
+        aspect-ratio: 1 / 1;
+        min-height: 0;
+        border-radius: 24px;
+        padding: 44px;
+        border: 18px solid #c9965d;
+        background-image:
+          linear-gradient(#ffffff, #ffffff),
+          repeating-linear-gradient(
+            90deg,
+            rgba(108, 70, 32, 0.12) 0px,
+            rgba(108, 70, 32, 0.03) 2px,
+            rgba(255, 255, 255, 0.05) 7px,
+            rgba(108, 70, 32, 0.08) 11px
+          );
+        background-origin: padding-box, border-box;
+        background-clip: padding-box, border-box;
+        box-shadow:
+          inset 0 0 0 10px rgba(31, 26, 23, 0.055),
+          inset 0 0 0 22px #ffffff,
+          0 26px 65px rgba(31, 26, 23, 0.18);
         display: flex;
         flex-direction: column;
       }
 
+      .art-proof::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 10px;
+        border: 1px solid rgba(31, 26, 23, 0.08);
+        box-shadow:
+          inset 0 0 18px rgba(31, 26, 23, 0.07),
+          0 0 0 8px rgba(255, 255, 255, 0.92);
+        pointer-events: none;
+      }
+
+      .art-proof::after {
+        content: "";
+        position: absolute;
+        inset: -18px;
+        border-radius: 26px;
+        border: 1px solid rgba(117, 76, 38, 0.28);
+        pointer-events: none;
+      }
+
       .palette-classic-black-and-cream {
-        background:
-          radial-gradient(circle at 50% 28%, rgba(31, 26, 23, 0.10), transparent 37%),
-          #fbf7ef;
+        background-color: #ffffff;
         border-color: #1f1a17;
       }
 
       .palette-sage-and-sand {
-        background:
-          radial-gradient(circle at 50% 28%, rgba(113, 132, 99, 0.18), transparent 37%),
-          #f5f1e6;
+        background-color: #ffffff;
         border-color: #9aa27c;
       }
 
       .palette-soft-blue {
-        background:
-          radial-gradient(circle at 50% 28%, rgba(100, 132, 160, 0.16), transparent 37%),
-          #f2f5f7;
+        background-color: #ffffff;
         border-color: #9eb4c5;
       }
 
       .palette-rose-clay {
-        background:
-          radial-gradient(circle at 50% 28%, rgba(168, 94, 86, 0.15), transparent 37%),
-          #faf1ec;
+        background-color: #ffffff;
         border-color: #be8a7e;
       }
 
@@ -1508,9 +1534,9 @@ function Styles() {
 
       .proof-geometry {
         position: relative;
-        width: min(100%, 440px);
-        height: 360px;
-        margin: 10px auto 18px;
+        width: min(100%, 470px);
+        height: 390px;
+        margin: 2px auto 18px;
       }
 
       .spirograph-wrap {
@@ -1562,7 +1588,7 @@ function Styles() {
 
       .proof-title h2 {
         margin: 0;
-        font-size: 36px;
+        font-size: 32px;
         line-height: 1;
         letter-spacing: -0.055em;
       }
@@ -1582,9 +1608,9 @@ function Styles() {
         display: flex;
         justify-content: space-between;
         gap: 14px;
-        padding: 10px 0;
+        padding: 7px 0;
         border-bottom: 1px solid rgba(31, 26, 23, 0.08);
-        font-size: 14px;
+        font-size: 13px;
       }
 
       .proof-dates strong { color: var(--ink); }
@@ -1593,9 +1619,9 @@ function Styles() {
 
       .proof-footer {
         text-align: center;
-        margin-top: 24px;
+        margin-top: 16px;
         color: var(--maple-dark);
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.12em;
@@ -1687,8 +1713,9 @@ function Styles() {
         }
 
         .art-proof {
-          min-height: 580px;
-          padding: 22px;
+          min-height: 0;
+          padding: 26px;
+          border-width: 14px;
         }
 
         .proof-geometry {
@@ -1696,12 +1723,9 @@ function Styles() {
           height: 280px;
         }
 
-        .proof-number {
-          right: 10px;
-          bottom: 8px;
-          min-width: 116px;
-          height: 34px;
-          font-size: 10px;
+        .encoded-date-line {
+          bottom: 0;
+          font-size: 9px;
         }
       }
     `}</style>
