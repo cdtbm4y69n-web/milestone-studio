@@ -1,1727 +1,736 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from 'react';
 
-type Collection = "Family Timeline" | "Wedding & Anniversary" | "New Baby" | "New Home" | "Personal Milestones";
+type StoryType =
+  | 'Family Timeline'
+  | 'Wedding & Anniversary'
+  | 'New Baby'
+  | 'New Home'
+  | 'Personal Milestones';
+
+type MilestoneCategory =
+  | 'Family'
+  | 'Wedding'
+  | 'Baby'
+  | 'Home'
+  | 'Personal'
+  | 'Other';
 
 type Milestone = {
   id: number;
   label: string;
   date: string;
+  importance: number;
+  category: MilestoneCategory;
 };
 
-function navigateTo(path: string) {
-  window.history.pushState({}, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
-  window.scrollTo({ top: 0, behavior: "smooth" });
+type PaletteName = 'Sage & Sand' | 'Clay & Linen' | 'Midnight & Parchment';
+
+type Palette = {
+  name: PaletteName;
+  paper: string;
+  ink: string;
+  frame: string;
+  lines: string[];
+  accent: string;
+};
+
+const palettes: Record<PaletteName, Palette> = {
+  'Sage & Sand': {
+    name: 'Sage & Sand',
+    paper: '#ffffff',
+    ink: '#1f1815',
+    frame: '#c79a63',
+    lines: ['#6B7D6D', '#B88B52', '#D5B85A', '#7BA7BE', '#D98A54', '#6C7A92'],
+    accent: '#A56F35',
+  },
+  'Clay & Linen': {
+    name: 'Clay & Linen',
+    paper: '#ffffff',
+    ink: '#231b18',
+    frame: '#bc9061',
+    lines: ['#C87454', '#D9A25F', '#8BA089', '#7B90B5', '#B66F76', '#947E5B'],
+    accent: '#9B633D',
+  },
+  'Midnight & Parchment': {
+    name: 'Midnight & Parchment',
+    paper: '#ffffff',
+    ink: '#16181d',
+    frame: '#a88458',
+    lines: ['#24364F', '#4F6F8A', '#A88342', '#8E6AA8', '#76857C', '#C98D62'],
+    accent: '#74562E',
+  },
+};
+
+const storyPresets: Record<StoryType, { subtitle: string; price: number; suggestions: MilestoneCategory[] }> = {
+  'Family Timeline': {
+    subtitle: 'Birthdays, anniversaries, homes, children, and family chapters.',
+    price: 219,
+    suggestions: ['Family', 'Wedding', 'Home', 'Baby', 'Other'],
+  },
+  'Wedding & Anniversary': {
+    subtitle: 'A relationship story told through dates and milestones.',
+    price: 219,
+    suggestions: ['Wedding', 'Family', 'Home', 'Other', 'Personal'],
+  },
+  'New Baby': {
+    subtitle: 'Birth details, firsts, and the opening chapter of a growing family.',
+    price: 219,
+    suggestions: ['Baby', 'Family', 'Other', 'Home', 'Personal'],
+  },
+  'New Home': {
+    subtitle: 'Move-in, meaningful renovations, and the story of a place.',
+    price: 219,
+    suggestions: ['Home', 'Family', 'Other', 'Personal', 'Wedding'],
+  },
+  'Personal Milestones': {
+    subtitle: 'Achievements, career moments, travels, and personal turning points.',
+    price: 219,
+    suggestions: ['Personal', 'Other', 'Family', 'Home', 'Wedding'],
+  },
+};
+
+const categoryLabelMap: Record<MilestoneCategory, string> = {
+  Family: 'Family',
+  Wedding: 'Wedding',
+  Baby: 'Baby',
+  Home: 'Home',
+  Personal: 'Personal',
+  Other: 'Other',
+};
+
+const categoryColorIndex: Record<MilestoneCategory, number> = {
+  Family: 0,
+  Wedding: 1,
+  Baby: 3,
+  Home: 2,
+  Personal: 5,
+  Other: 4,
+};
+
+const defaultMilestones: Milestone[] = [
+  { id: 1, label: 'Wedding Day', date: '2010-06-12', importance: 5, category: 'Wedding' },
+  { id: 2, label: 'Lucas Born', date: '2012-03-22', importance: 5, category: 'Baby' },
+  { id: 3, label: 'First Home', date: '2014-09-18', importance: 4, category: 'Home' },
+];
+
+function formatDisplayDate(dateString: string) {
+  if (!dateString) return '—';
+  const d = new Date(dateString + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return dateString;
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
-function usePath() {
-  const [path, setPath] = useState(window.location.pathname);
-
-  useEffect(() => {
-    const updatePath = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", updatePath);
-    return () => window.removeEventListener("popstate", updatePath);
-  }, []);
-
-  return path;
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
-export default function App() {
-  const path = usePath();
+function digitSum(input: string) {
+  return input.replace(/\D/g, '').split('').reduce((sum, d) => sum + Number(d), 0);
+}
 
-  if (path === "/create") {
-    return <CreatorPage />;
+function daysBetween(a: string, b: string) {
+  const one = new Date(a + 'T00:00:00').getTime();
+  const two = new Date(b + 'T00:00:00').getTime();
+  return Math.round((two - one) / 86400000);
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
+  const angle = (angleDeg * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(angle),
+    y: cy + radius * Math.sin(angle),
+  };
+}
+
+function buildSpiroPath(
+  cx: number,
+  cy: number,
+  outerRadius: number,
+  innerRadius: number,
+  offsetRadius: number,
+  rotations: number,
+  points: number,
+) {
+  const pts: string[] = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const t = (Math.PI * 2 * rotations * i) / points;
+    const ratio = (outerRadius - innerRadius) / innerRadius;
+    const x =
+      cx +
+      (outerRadius - innerRadius) * Math.cos(t) +
+      offsetRadius * Math.cos(ratio * t);
+    const y =
+      cy +
+      (outerRadius - innerRadius) * Math.sin(t) -
+      offsetRadius * Math.sin(ratio * t);
+    pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
   }
 
-  return <HomePage />;
+  return `${pts.join(' ')} Z`;
 }
 
-function Header() {
-  return (
-    <header className="site-header">
-      <button className="brand-button" onClick={() => navigateTo("/")}>
-        <span className="brand-mark">M</span>
-        <span className="brand-text">
-          <strong>Milestone</strong>
-          <em>Art Studio</em>
-        </span>
-      </button>
+function generateArtworkNodes(
+  milestones: Milestone[],
+  anchorDate: string,
+  palette: Palette,
+) {
+  const validMilestones = milestones
+    .filter((m) => m.label.trim() && m.date)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      <nav className="desktop-nav">
-        <button onClick={() => navigateTo("/")}>Home</button>
-        <a href="/#collections">Collections</a>
-        <a href="/#how">How It Works</a>
-        <button className="nav-cta" onClick={() => navigateTo("/create")}>
-          Start Creating
-        </button>
-      </nav>
-    </header>
+  if (!validMilestones.length || !anchorDate) {
+    return [] as Array<{
+      id: number;
+      x: number;
+      y: number;
+      color: string;
+      strokeWidth: number;
+      opacity: number;
+      path: string;
+      orbitRadius: number;
+      ringColor: string;
+      importance: number;
+    }>;
+  }
+
+  const dates = [anchorDate, ...validMilestones.map((m) => m.date)].map((date) =>
+    new Date(date + 'T00:00:00').getTime(),
   );
+  const minTime = Math.min(...dates);
+  const maxTime = Math.max(...dates);
+  const totalRange = Math.max(maxTime - minTime, 86400000 * 30);
+
+  const cx = 320;
+  const cy = 320;
+  const goldenAngle = 137.5;
+
+  return validMilestones.map((milestone, index) => {
+    const time = new Date(milestone.date + 'T00:00:00').getTime();
+    const normalizedTime = clamp((time - minTime) / totalRange, 0, 1);
+    const daysFromAnchor = Math.abs(daysBetween(anchorDate, milestone.date));
+    const normalizedAnchorDistance = clamp(daysFromAnchor / (totalRange / 86400000), 0, 1);
+    const importance = clamp(milestone.importance, 1, 5);
+
+    const orbitRadius = 56 + normalizedTime * 150 + importance * 10;
+    const angle = index * goldenAngle + digitSum(milestone.date) * 3.5;
+    const { x, y } = polarToCartesian(cx, cy, orbitRadius * (0.68 + normalizedAnchorDistance * 0.32), angle);
+
+    const color = palette.lines[categoryColorIndex[milestone.category] % palette.lines.length];
+    const petalsSeed = 8 + (digitSum(milestone.date) % 11);
+    const outerRadius = 12 + importance * 4 + (digitSum(milestone.label) % 5);
+    const innerRadius = Math.max(4, Math.round(outerRadius * (0.34 + ((index % 3) * 0.06))));
+    const offsetRadius = outerRadius * (0.42 + (petalsSeed % 5) * 0.035);
+    const rotations = 8 + (petalsSeed % 7) + importance;
+    const points = 380;
+    const path = buildSpiroPath(x, y, outerRadius, innerRadius, offsetRadius, rotations, points);
+
+    return {
+      id: milestone.id,
+      x,
+      y,
+      color,
+      strokeWidth: 0.8 + importance * 0.18,
+      opacity: 0.55 + importance * 0.08,
+      path,
+      orbitRadius,
+      ringColor: color,
+      importance,
+    };
+  });
 }
 
-function HomePage() {
-  const heroImageUrl =
-    "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1600&q=90";
+function ArtworkPreview({
+  storyType,
+  title,
+  subtitle,
+  primaryDate,
+  milestones,
+  palette,
+}: {
+  storyType: StoryType;
+  title: string;
+  subtitle: string;
+  primaryDate: string;
+  milestones: Milestone[];
+  palette: Palette;
+}) {
+  const nodes = useMemo(
+    () => generateArtworkNodes(milestones, primaryDate, palette),
+    [milestones, primaryDate, palette],
+  );
+
+  const faintRings = [110, 170, 230];
+  const anchorDigits = primaryDate ? primaryDate.replace(/-/g, ' · ') : '—';
 
   return (
-    <div className="page">
-      <Styles />
-      <Header />
-
-      <main>
-        <section className="home-hero">
-          <div className="home-copy">
-            <p className="eyebrow">Custom milestone artwork</p>
-            <h1>
-              Turn life’s biggest numbers into <span>timeless wall art.</span>
-            </h1>
-            <p>
-              Create custom artwork from the dates, names, places, and milestones
-              that shaped your family, relationship, home, or next big chapter.
-            </p>
-
-            <div className="button-row">
-              <button className="primary-button" onClick={() => navigateTo("/create")}>
-                Create Your Artwork
-              </button>
-              <a className="secondary-button" href="#collections">
-                View Collections
-              </a>
+    <div className="preview-sheet-wrap">
+      <div className="frame-mockup">
+        <div className="frame-inner-shadow">
+          <div className="art-paper" style={{ background: palette.paper }}>
+            <div className="art-topline">
+              <span>{storyType.toUpperCase()}</span>
+              <span>{palette.name.toUpperCase()}</span>
             </div>
 
-            <div className="trust-row">
-              <span>Personalized preview</span>
-              <span>Premium framing</span>
-              <span>Made to order</span>
+            <svg viewBox="0 0 640 640" className="art-svg" aria-label="Generated interpretive artwork preview">
+              {faintRings.map((r) => (
+                <circle
+                  key={r}
+                  cx="320"
+                  cy="320"
+                  r={r}
+                  fill="none"
+                  stroke={palette.ink}
+                  strokeOpacity="0.08"
+                  strokeWidth="1"
+                />
+              ))}
+
+              {nodes.map((node) => (
+                <g key={node.id}>
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={node.importance * 2.1 + 2}
+                    fill={node.color}
+                    fillOpacity="0.12"
+                  />
+                  <path
+                    d={node.path}
+                    fill="none"
+                    stroke={node.color}
+                    strokeOpacity={node.opacity}
+                    strokeWidth={node.strokeWidth}
+                  />
+                </g>
+              ))}
+
+              <circle cx="320" cy="320" r="3.8" fill={palette.ink} fillOpacity="0.45" />
+            </svg>
+
+            <div className="art-center-caption">{anchorDigits}</div>
+
+            <div className="art-title-block">
+              <h3>{title || 'Your Milestone Artwork'}</h3>
+              <p>{subtitle || 'Your story in dates'}</p>
             </div>
-          </div>
 
-          <div className="home-image-card">
-            <img src={heroImageUrl} alt="Framed art in a living room" />
-            <div className="home-image-note">
-              <strong>Your story, numbered.</strong>
-              <span>Dates transformed into clean gallery-style artwork.</span>
+            <div className="milestone-summary">
+              <div className="summary-row">
+                <span>Anchor Date</span>
+                <span>{primaryDate || '—'}</span>
+              </div>
+              {milestones
+                .filter((m) => m.label.trim() && m.date)
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 5)
+                .map((m) => (
+                  <div className="summary-row" key={m.id}>
+                    <span>{m.label}</span>
+                    <span>{m.date}</span>
+                  </div>
+                ))}
             </div>
-          </div>
-        </section>
 
-        <section className="section" id="collections">
-          <div className="section-heading">
-            <p className="eyebrow">Collections</p>
-            <h2>Choose the story you want to tell.</h2>
-            <p>
-              Start with a guided collection. Each one asks for the details that
-              make sense for that moment.
-            </p>
+            <div className="frame-caption">FLOATING MAPLE FRAME · 20 × 20</div>
           </div>
-
-          <div className="collection-grid">
-            {[
-              ["Family Timeline", "Birthdays, anniversaries, homes, moves, and meaningful family dates."],
-              ["Wedding & Anniversary", "A couple’s story told through the dates that shaped the relationship."],
-              ["New Baby", "Birth date, time, weight, length, and first little details for nursery art."],
-            ].map(([title, text]) => (
-              <button key={title} className="collection-card" onClick={() => navigateTo("/create")}>
-                <span>{title}</span>
-                <p>{text}</p>
-                <strong>Start this collection</strong>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="section soft-section" id="how">
-          <div className="section-heading">
-            <p className="eyebrow">How it works</p>
-            <h2>Simple to create. Personal by design.</h2>
-          </div>
-
-          <div className="steps-grid">
-            <div><b>1</b><h3>Pick your story</h3><p>Choose family, wedding, baby, home, or personal milestones.</p></div>
-            <div><b>2</b><h3>Add dates</h3><p>Enter the milestones that should appear in the artwork.</p></div>
-            <div><b>3</b><h3>Preview</h3><p>Watch the piece take shape as details are added.</p></div>
-            <div><b>4</b><h3>Choose finish</h3><p>Select size, palette, and frame before ordering.</p></div>
-          </div>
-        </section>
-
-        <section className="section final-cta">
-          <p className="eyebrow">Start creating</p>
-          <h2>Your dates already mean something. Make them visible.</h2>
-          <button className="primary-button" onClick={() => navigateTo("/create")}>
-            Open the Artwork Builder
-          </button>
-        </section>
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
 
-function CreatorPage() {
-  const [collection, setCollection] = useState<Collection>("Family Timeline");
-  const [title, setTitle] = useState("The Applin Family");
-  const [subtitle, setSubtitle] = useState("Our story in dates");
-  const [primaryDate, setPrimaryDate] = useState("2010-06-12");
-  const [palette, setPalette] = useState("Gallery Modern");
-  const [size, setSize] = useState("20 x 20");
-  const [finish, setFinish] = useState("Floating Maple Frame");
-  const [milestones, setMilestones] = useState<Milestone[]>([
-    { id: 1, label: "Wedding Day", date: "2010-06-12" },
-    { id: 2, label: "First Home", date: "2014-09-18" },
-    { id: 3, label: "Lucas Born", date: "2012-03-22" },
-  ]);
+export default function App() {
+  const [storyType, setStoryType] = useState<StoryType>('Family Timeline');
+  const [title, setTitle] = useState('The Applin Family');
+  const [subtitle, setSubtitle] = useState('Our story in dates');
+  const [primaryDate, setPrimaryDate] = useState('2010-06-12');
+  const [paletteName, setPaletteName] = useState<PaletteName>('Sage & Sand');
+  const [milestones, setMilestones] = useState<Milestone[]>(defaultMilestones);
 
-  const storyPrompt = getStoryPrompt(collection);
+  const preset = storyPresets[storyType];
+  const palette = palettes[paletteName];
 
-  const encodedNumber = useMemo(() => {
-    const numbers = [primaryDate, ...milestones.map((m) => m.date)]
-      .join("")
-      .replace(/\D/g, "");
+  const sortedMilestones = useMemo(
+    () => [...milestones].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [milestones],
+  );
 
-    return numbers.padEnd(12, "0").slice(0, 12);
-  }, [primaryDate, milestones]);
-
-  const spiroSeed = dateSeed(primaryDate, milestones);
-  const price = getPrice(size, finish);
-
-  const previewMilestones = milestones.filter((item) => item.label || item.date).slice(0, 6);
-
-  function selectCollection(nextCollection: Collection) {
-    setCollection(nextCollection);
-
-    const preset = collectionPresets[nextCollection];
-    setTitle(preset.title);
-    setSubtitle(preset.subtitle);
-    setMilestones(preset.milestones);
-  }
-
-  function updateMilestone(id: number, field: keyof Milestone, value: string) {
-    setMilestones((items) =>
-      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    );
+  function updateMilestone(id: number, patch: Partial<Milestone>) {
+    setMilestones((current) => current.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   }
 
   function addMilestone() {
-    setMilestones((items) => [
-      ...items,
-      { id: Date.now(), label: "", date: "" },
+    const today = new Date();
+    const date = today.toISOString().slice(0, 10);
+    setMilestones((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        label: 'New Milestone',
+        date,
+        importance: 3,
+        category: preset.suggestions[0] ?? 'Other',
+      },
     ]);
   }
 
   function removeMilestone(id: number) {
-    setMilestones((items) => items.filter((item) => item.id !== id));
+    setMilestones((current) => current.filter((m) => m.id !== id));
   }
 
+  const totalMilestones = milestones.filter((m) => m.label.trim() && m.date).length;
+
   return (
-    <div className="page creator-page">
-      <Styles />
-      <Header />
+    <>
+      <style>{`
+        :root {
+          --bg: #efe6d8;
+          --panel: #f8f5ef;
+          --card: #fdfbf7;
+          --line: #dbcdbc;
+          --text: #201815;
+          --muted: #6f6258;
+          --accent: #201815;
+          --gold: #a56f35;
+        }
+        * { box-sizing: border-box; }
+        html, body, #root { margin: 0; min-height: 100%; background: linear-gradient(180deg,#f5f0e8 0%, #eee5d7 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        a { color: inherit; text-decoration: none; }
+        .site-shell { min-height: 100vh; }
+        .topbar {
+          height: 72px; display: flex; align-items: center; justify-content: space-between;
+          padding: 0 28px; border-bottom: 1px solid rgba(32,24,21,0.08); background: rgba(255,255,255,0.48);
+          backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 5;
+        }
+        .brand { display:flex; align-items:center; gap: 12px; font-weight: 800; }
+        .brand-mark { width: 38px; height: 38px; border-radius: 999px; background:#201815; color:#fff; display:flex; align-items:center; justify-content:center; font-weight: 800; }
+        .brand-sub { display:block; font-size: 12px; letter-spacing: 0.16em; color: #6e6257; margin-top: 2px; font-weight: 700; }
+        .nav { display:flex; gap: 28px; align-items:center; font-weight: 700; color: #6d6157; }
+        .cta { background:#201815; color:#fff; border:none; border-radius: 999px; padding: 14px 24px; font-weight: 800; cursor:pointer; }
+        .page { max-width: 1560px; margin: 0 auto; padding: 34px 26px 46px; }
+        .back-link { color: #a56f35; font-weight: 800; display:inline-flex; align-items:center; gap:8px; margin-bottom: 18px; }
+        .hero-grid { display:grid; grid-template-columns: minmax(760px, 1.2fr) minmax(360px, .8fr); gap: 26px; align-items: start; }
+        .eyebrow { font-size: 14px; letter-spacing: .24em; font-weight: 900; color: #7a6959; margin-bottom: 12px; }
+        .hero-copy h1 { margin: 0; font-size: clamp(54px, 6vw, 84px); line-height: .92; letter-spacing: -0.05em; max-width: 940px; }
+        .hero-copy p { font-size: 18px; line-height: 1.7; color: #6f6258; max-width: 820px; margin: 18px 0 0; }
+        .price-card { background: rgba(255,255,255,.76); border: 1px solid rgba(32,24,21,.08); border-radius: 28px; padding: 22px; box-shadow: 0 10px 30px rgba(75, 49, 18, 0.05); }
+        .price-card .small { color: #7a6d64; font-size: 14px; margin-bottom: 6px; }
+        .price-card h3 { margin: 0 0 12px; font-size: 20px; }
+        .price-card .detail { color: #6f6258; margin-bottom: 18px; }
+        .price-card .price { font-size: 54px; line-height: 1; font-weight: 900; }
+        .content-grid { display:grid; grid-template-columns: minmax(760px, 1.05fr) minmax(360px, .95fr); gap: 26px; align-items: start; margin-top: 22px; }
+        .left-col { display:grid; gap: 22px; }
+        .tabs { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .tab { background: rgba(255,255,255,.58); border: 1px solid rgba(32,24,21,.08); border-radius: 999px; padding: 14px 18px; text-align: center; font-weight: 800; color: #7a6c63; }
+        .tab.active { background:#201815; color:#fff; }
+        .panel { background: rgba(255,255,255,.68); border: 1px solid rgba(32,24,21,.08); border-radius: 30px; padding: 26px; box-shadow: 0 14px 35px rgba(58,39,18,.05); }
+        .panel h2 { margin: 0; font-size: 22px; }
+        .panel-sub { margin-top: 8px; color:#6f6258; font-size: 16px; }
+        .section-index { width: 40px; height: 40px; border-radius: 999px; background:#201815; color:#fff; display:flex; align-items:center; justify-content:center; font-weight: 900; flex: 0 0 auto; }
+        .section-header { display:flex; gap: 16px; align-items:flex-start; margin-bottom: 20px; }
+        .story-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+        .story-card { border: 1px solid #d7c7b6; border-radius: 20px; padding: 18px; background: #f9f5ed; cursor:pointer; }
+        .story-card.active { border-color:#b89163; background:#f5eee2; box-shadow: inset 0 0 0 1px rgba(184,145,99,.35); }
+        .story-card strong { display:block; font-size: 16px; margin-bottom: 6px; }
+        .story-card span { color:#6f6258; line-height: 1.5; }
+        .field-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .field { display:grid; gap: 8px; }
+        .field label { font-size: 14px; color:#6f6258; font-weight: 700; }
+        .field input, .field select {
+          width:100%; border:1px solid #d9cec4; border-radius: 16px; background:#fff; padding: 14px 16px; font-size:16px; color:#201815;
+        }
+        .field.full { grid-column: 1 / -1; }
+        .milestones-head { display:flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .mini-btn { background:#201815; color:#fff; border:none; border-radius: 999px; padding: 12px 18px; font-weight: 800; cursor:pointer; }
+        .milestone-list { display:grid; gap: 14px; }
+        .milestone-row {
+          display:grid; grid-template-columns: 48px 1.2fr 180px 150px 150px 108px; gap: 12px; align-items:end;
+          padding: 14px; border-radius: 22px; background: rgba(241,233,221,.8); border:1px solid rgba(32,24,21,.06);
+        }
+        .milestone-num { width: 36px; height: 36px; border-radius:999px; background:#eadfce; color:#9a6d37; font-weight:900; display:flex; align-items:center; justify-content:center; margin-bottom: 10px; }
+        .remove-btn { border:none; border-radius: 16px; background:#e8dfd3; padding: 14px 12px; font-weight: 800; cursor:pointer; }
+        .importance-note { margin-top: 16px; color:#6f6258; font-size: 14px; }
+        .preview-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(32,24,21,.08); border-radius: 30px; padding: 18px 18px 22px; position: sticky; top: 92px; }
+        .preview-top { display:flex; justify-content: space-between; align-items:end; gap: 10px; margin-bottom: 10px; }
+        .preview-top .eyebrow { margin: 0 0 6px; }
+        .preview-top .meta { color:#6f6258; font-weight: 700; }
+        .preview-price { font-size: 28px; font-weight: 900; }
+        .preview-sheet-wrap { padding: 6px 4px 2px; }
+        .frame-mockup {
+          background: linear-gradient(145deg, #d7b185 0%, #b8844f 42%, #d5ad7d 100%);
+          border-radius: 30px; padding: 12px; box-shadow:
+            inset 0 0 0 1px rgba(117,72,27,.25),
+            inset 0 8px 22px rgba(255,255,255,.26),
+            0 18px 45px rgba(83,55,22,.14);
+          aspect-ratio: 1 / 1;
+        }
+        .frame-inner-shadow {
+          width: 100%; height: 100%; background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(255,255,255,.04));
+          border-radius: 22px; padding: 18px; box-shadow: inset 0 0 0 1px rgba(73,48,24,.14);
+        }
+        .art-paper {
+          width:100%; height:100%; background:#fff; border-radius: 4px; box-shadow:
+            0 0 0 16px rgba(255,255,255,.96),
+            0 0 0 17px rgba(16,16,16,.04),
+            inset 0 0 24px rgba(0,0,0,.02);
+          position: relative; overflow: hidden; padding: 28px 26px 22px;
+        }
+        .art-topline { display:flex; justify-content:space-between; align-items:center; font-size: 14px; letter-spacing: .18em; font-weight: 900; color:#9a6d37; }
+        .art-svg { width: 100%; height: calc(100% - 172px); display:block; margin-top: 12px; }
+        .art-center-caption { text-align:center; margin-top: -8px; color:#201815; font-size: 18px; letter-spacing: .08em; }
+        .art-title-block { text-align:center; margin: 10px 0 14px; }
+        .art-title-block h3 { margin:0; font-size: 26px; line-height:1.1; }
+        .art-title-block p { margin: 4px 0 0; font-size: 14px; color:#6f6258; }
+        .milestone-summary { display:grid; gap: 0; }
+        .summary-row { display:grid; grid-template-columns: 1fr auto; gap: 16px; padding: 7px 0; border-bottom:1px solid rgba(32,24,21,.08); font-size: 14px; }
+        .summary-row span:first-child { font-weight: 700; }
+        .summary-row span:last-child { color:#6f6258; }
+        .frame-caption { text-align:center; margin-top: 12px; color:#9a6d37; letter-spacing: .18em; font-size: 14px; font-weight: 900; }
+        .explain-box { margin-top: 18px; padding: 16px 18px; background:#f6f1e9; border-radius: 18px; border:1px solid rgba(32,24,21,.06); }
+        .explain-box h4 { margin:0 0 10px; font-size: 15px; letter-spacing:.12em; color:#9a6d37; }
+        .explain-box ul { margin: 0; padding-left: 20px; color:#6f6258; display:grid; gap: 8px; }
 
-      <main className="creator-main">
-        <section className="creator-hero">
-          <button className="back-link" onClick={() => navigateTo("/")}>← Back to homepage</button>
+        @media (max-width: 1280px) {
+          .hero-grid, .content-grid { grid-template-columns: 1fr; }
+          .preview-panel { position: static; }
+        }
+        @media (max-width: 1040px) {
+          .milestone-row { grid-template-columns: 48px 1fr 1fr; }
+          .milestone-row .field.full-mobile { grid-column: 2 / -1; }
+          .story-grid, .field-grid { grid-template-columns: 1fr; }
+          .tabs { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 720px) {
+          .topbar { padding: 0 16px; }
+          .nav { display:none; }
+          .page { padding: 24px 14px 40px; }
+          .hero-copy h1 { font-size: 50px; }
+          .milestone-row { grid-template-columns: 1fr; }
+          .milestone-num { margin-bottom: 0; }
+        }
+      `}</style>
 
-          <div className="creator-hero-grid">
+      <div className="site-shell">
+        <header className="topbar">
+          <div className="brand">
+            <div className="brand-mark">M</div>
             <div>
-              <p className="eyebrow">Artwork builder</p>
+              <div style={{ fontSize: 18 }}>Milestone</div>
+              <span className="brand-sub">ART STUDIO</span>
+            </div>
+          </div>
+          <nav className="nav">
+            <a href="#">Home</a>
+            <a href="#">Collections</a>
+            <a href="#">How It Works</a>
+            <button className="cta">Start Creating</button>
+          </nav>
+        </header>
+
+        <main className="page">
+          <a className="back-link" href="#">← Back to homepage</a>
+
+          <section className="hero-grid">
+            <div className="hero-copy">
+              <div className="eyebrow">ARTWORK BUILDER</div>
               <h1>Create your custom milestone artwork.</h1>
-              <p className="compact-intro">
-                Add the dates and details that shaped the story. The preview updates
-                as you build.
+              <p>
+                Add the dates and details that shaped the story. The preview updates as you build,
+                turning your milestones into interpretive spirograph-inspired artwork influenced by time,
+                importance, and milestone type.
               </p>
             </div>
 
-            <div className="mini-summary-card">
-              <span>Current piece</span>
-              <strong>{collection}</strong>
-              <p>{size} · {finish}</p>
-              <b>${price}</b>
-            </div>
-          </div>
-        </section>
+            <aside className="price-card">
+              <div className="small">Current piece</div>
+              <h3>{storyType}</h3>
+              <div className="detail">20 × 20 · Floating Maple Frame</div>
+              <div className="price">${preset.price}</div>
+            </aside>
+          </section>
 
-        <section className="studio-layout">
-          <div className="studio-form">
-            <div className="progress-strip">
-              <span className="active">Story</span>
-              <span>Dates</span>
-              <span>Style</span>
-              <span>Preview</span>
-            </div>
+          <section className="content-grid">
+            <div className="left-col">
+              <div className="tabs">
+                <div className="tab active">Story</div>
+                <div className="tab">Dates</div>
+                <div className="tab">Style</div>
+                <div className="tab">Preview</div>
+              </div>
 
-            <section className="studio-card">
-              <div className="card-heading">
-                <span>1</span>
-                <div>
-                  <h2>Choose the story</h2>
-                  <p>Start with the type of artwork. This changes the suggested fields.</p>
+              <section className="panel">
+                <div className="section-header">
+                  <div className="section-index">1</div>
+                  <div>
+                    <h2>Choose the story</h2>
+                    <div className="panel-sub">Start with the type of artwork. This changes the suggested milestone categories.</div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="story-grid">
-                {(["Family Timeline", "Wedding & Anniversary", "New Baby", "New Home", "Personal Milestones"] as Collection[]).map((item) => (
-                  <button
-                    key={item}
-                    className={collection === item ? "story-choice selected" : "story-choice"}
-                    onClick={() => selectCollection(item)}
-                  >
-                    <strong>{item}</strong>
-                    <small>{getShortDescription(item)}</small>
-                  </button>
-                ))}
-              </div>
-
-              <div className="guidance-box">
-                <strong>{collection}</strong>
-                <p>{storyPrompt}</p>
-              </div>
-            </section>
-
-            <section className="studio-card">
-              <div className="card-heading">
-                <span>2</span>
-                <div>
-                  <h2>Name the artwork</h2>
-                  <p>This is the text that appears most prominently on the piece.</p>
+                <div className="story-grid">
+                  {(Object.keys(storyPresets) as StoryType[]).map((type) => (
+                    <button
+                      key={type}
+                      className={`story-card ${storyType === type ? 'active' : ''}`}
+                      onClick={() => setStoryType(type)}
+                      style={{ textAlign: 'left', border: 'none' }}
+                    >
+                      <strong>{type}</strong>
+                      <span>{storyPresets[type].subtitle}</span>
+                    </button>
+                  ))}
                 </div>
-              </div>
+              </section>
 
-              <div className="two-col">
-                <label>
-                  Artwork title
-                  <input value={title} onChange={(e) => setTitle(e.target.value)} />
-                </label>
+              <section className="panel">
+                <div className="section-header">
+                  <div className="section-index">2</div>
+                  <div>
+                    <h2>Name the artwork</h2>
+                    <div className="panel-sub">These details appear in the product summary and help personalize the piece.</div>
+                  </div>
+                </div>
 
-                <label>
-                  Subtitle
-                  <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
-                </label>
-              </div>
+                <div className="field-grid">
+                  <div className="field">
+                    <label>Artwork Title</label>
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Applin Family" />
+                  </div>
 
-              <label>
-                Anchor date
-                <input type="date" value={primaryDate} onChange={(e) => setPrimaryDate(e.target.value)} />
-              </label>
-            </section>
+                  <div className="field">
+                    <label>Subtitle</label>
+                    <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Our story in dates" />
+                  </div>
 
-            <section className="studio-card">
-              <div className="card-heading between">
-                <div className="heading-left">
-                  <span>3</span>
+                  <div className="field">
+                    <label>Anchor Date</label>
+                    <input type="date" value={primaryDate} onChange={(e) => setPrimaryDate(e.target.value)} />
+                  </div>
+
+                  <div className="field">
+                    <label>Color Palette</label>
+                    <select value={paletteName} onChange={(e) => setPaletteName(e.target.value as PaletteName)}>
+                      {(Object.keys(palettes) as PaletteName[]).map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="section-header">
+                  <div className="section-index">3</div>
                   <div>
                     <h2>Add milestone dates</h2>
-                    <p>Use simple labels like Wedding Day, First Home, Birth, or Graduation.</p>
+                    <div className="panel-sub">Each milestone affects the artwork. Time influences placement, importance controls scale, and category drives color behavior.</div>
                   </div>
                 </div>
 
-                <button className="small-dark-button" onClick={addMilestone}>
-                  Add date
-                </button>
-              </div>
+                <div className="milestones-head">
+                  <div style={{ color: '#6f6258', fontWeight: 700 }}>{totalMilestones} milestone{totalMilestones === 1 ? '' : 's'} included</div>
+                  <button className="mini-btn" onClick={addMilestone}>Add Milestone</button>
+                </div>
 
-              <div className="milestone-list">
-                {milestones.map((milestone, index) => (
-                  <div className="milestone-row" key={milestone.id}>
-                    <div className="milestone-index">{index + 1}</div>
+                <div className="milestone-list">
+                  {sortedMilestones.map((milestone, index) => (
+                    <div key={milestone.id} className="milestone-row">
+                      <div className="milestone-num">{index + 1}</div>
 
-                    <label>
-                      Milestone label
-                      <input
-                        value={milestone.label}
-                        placeholder="Wedding Day"
-                        onChange={(e) => updateMilestone(milestone.id, "label", e.target.value)}
-                      />
-                    </label>
+                      <div className="field">
+                        <label>Label</label>
+                        <input
+                          value={milestone.label}
+                          onChange={(e) => updateMilestone(milestone.id, { label: e.target.value })}
+                          placeholder="Wedding Day"
+                        />
+                      </div>
 
-                    <label>
-                      Date
-                      <input
-                        type="date"
-                        value={milestone.date}
-                        onChange={(e) => updateMilestone(milestone.id, "date", e.target.value)}
-                      />
-                    </label>
+                      <div className="field">
+                        <label>Date</label>
+                        <input
+                          type="date"
+                          value={milestone.date}
+                          onChange={(e) => updateMilestone(milestone.id, { date: e.target.value })}
+                        />
+                      </div>
 
-                    {milestones.length > 1 && (
-                      <button className="remove-button" onClick={() => removeMilestone(milestone.id)}>
+                      <div className="field">
+                        <label>Importance</label>
+                        <select
+                          value={milestone.importance}
+                          onChange={(e) => updateMilestone(milestone.id, { importance: Number(e.target.value) })}
+                        >
+                          <option value={1}>1 · Small</option>
+                          <option value={2}>2 · Meaningful</option>
+                          <option value={3}>3 · Important</option>
+                          <option value={4}>4 · Major</option>
+                          <option value={5}>5 · Life-changing</option>
+                        </select>
+                      </div>
+
+                      <div className="field">
+                        <label>Category</label>
+                        <select
+                          value={milestone.category}
+                          onChange={(e) => updateMilestone(milestone.id, { category: e.target.value as MilestoneCategory })}
+                        >
+                          {(Object.keys(categoryLabelMap) as MilestoneCategory[]).map((category) => (
+                            <option key={category} value={category}>{categoryLabelMap[category]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button className="remove-btn" onClick={() => removeMilestone(milestone.id)}>
                         Remove
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="studio-card">
-              <div className="card-heading">
-                <span>4</span>
-                <div>
-                  <h2>Choose the finish</h2>
-                  <p>Make the buying choices obvious before checkout.</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
 
-              <div className="three-col">
-                <label>
-                  Color palette
-                  <select value={palette} onChange={(e) => setPalette(e.target.value)}>
-                    <option>Gallery Modern</option>
-                    <option>Warm Neutral</option>
-                    <option>Classic Black & Cream</option>
-                    <option>Sage & Sand</option>
-                    <option>Soft Blue</option>
-                    <option>Rose Clay</option>
-                  </select>
-                </label>
-
-                <label>
-                  Size
-                  <select value={size} onChange={(e) => setSize(e.target.value)}>
-                    <option>8 x 8</option>
-                    <option>10 x 10</option>
-                    <option>12 x 12</option>
-                    <option>16 x 16</option>
-                    <option>20 x 20</option>
-                    <option>30 x 30</option>
-                  </select>
-                </label>
-
-                <label>
-                  Finish
-                  <select value={finish} onChange={(e) => setFinish(e.target.value)}>
-                    <option>Fine Art Print Only</option>
-                    <option>Floating Maple Frame</option>
-                    <option>Shadow Box Frame</option>
-                    <option>Digital Proof Only</option>
-                  </select>
-                </label>
-              </div>
-            </section>
-
-            <section className="order-panel">
-              <div>
-                <span>Estimated price</span>
-                <strong>${price}</strong>
-                <p>Checkout is the next integration step. For now, this confirms the builder flow.</p>
-              </div>
-
-              <button className="primary-button">Continue to Order</button>
-            </section>
-          </div>
-
-          <aside className="preview-side">
-            <div className="preview-shell">
-              <div className="preview-topline">
-                <div>
-                  <p className="eyebrow">Artwork Preview</p>
-                  <strong>{size} · {finish}</strong>
+                <div className="importance-note">
+                  Tip: use <strong>Importance</strong> to tell the system how visually dominant a milestone should feel in the artwork.
                 </div>
-                <span>${price}</span>
-              </div>
-
-              <div className={`art-proof ${paletteClass(palette)}`}>
-                <div className="proof-geometry spirograph-wrap">
-                  <SpirographPreview seed={spiroSeed} palette={palette} milestoneCount={milestones.length} />
-                </div>
-              </div>
-
-              <div className="what-happens-next">
-                <h3>What happens next?</h3>
-                <ol>
-                  <li>Customer reviews the proof.</li>
-                  <li>Customer chooses size and frame.</li>
-                  <li>Checkout collects payment and order details.</li>
-                  <li>Final print-ready artwork is generated for fulfillment.</li>
-                </ol>
-              </div>
+              </section>
             </div>
-          </aside>
-        </section>
-      </main>
-    </div>
-  );
-}
 
-const collectionPresets: Record<Collection, { title: string; subtitle: string; milestones: Milestone[] }> = {
-  "Family Timeline": {
-    title: "The Applin Family",
-    subtitle: "Our story in dates",
-    milestones: [
-      { id: 1, label: "Wedding Day", date: "2010-06-12" },
-      { id: 2, label: "First Home", date: "2014-09-18" },
-      { id: 3, label: "Lucas Born", date: "2012-03-22" },
-    ],
-  },
-  "Wedding & Anniversary": {
-    title: "Thomas & Leah",
-    subtitle: "The dates that built us",
-    milestones: [
-      { id: 1, label: "First Date", date: "" },
-      { id: 2, label: "Wedding Day", date: "2010-06-12" },
-      { id: 3, label: "First Home", date: "" },
-    ],
-  },
-  "New Baby": {
-    title: "Lucas",
-    subtitle: "A first chapter",
-    milestones: [
-      { id: 1, label: "Birth Date", date: "" },
-      { id: 2, label: "Birth Time", date: "" },
-      { id: 3, label: "Homecoming", date: "" },
-    ],
-  },
-  "New Home": {
-    title: "Our First Home",
-    subtitle: "The place our story grew",
-    milestones: [
-      { id: 1, label: "Offer Accepted", date: "" },
-      { id: 2, label: "Move-In Day", date: "" },
-      { id: 3, label: "First Holiday", date: "" },
-    ],
-  },
-  "Personal Milestones": {
-    title: "A Life in Motion",
-    subtitle: "Moments worth remembering",
-    milestones: [
-      { id: 1, label: "Graduation", date: "" },
-      { id: 2, label: "Career Start", date: "" },
-      { id: 3, label: "Big Achievement", date: "" },
-    ],
-  },
-};
-
-function getShortDescription(collection: Collection) {
-  const descriptions: Record<Collection, string> = {
-    "Family Timeline": "Family dates and shared milestones",
-    "Wedding & Anniversary": "A couple’s story in dates",
-    "New Baby": "Birth details and first moments",
-    "New Home": "Move-in, address, and home story",
-    "Personal Milestones": "A personal journey or achievement",
-  };
-
-  return descriptions[collection];
-}
-
-function getStoryPrompt(collection: Collection) {
-  const prompts: Record<Collection, string> = {
-    "Family Timeline": "Best for birthdays, anniversaries, homes, children, moves, and shared family chapters.",
-    "Wedding & Anniversary": "Best for wedding gifts, anniversaries, proposals, first homes, and relationship milestones.",
-    "New Baby": "Best for birth date, time, weight, length, birthplace, parent names, and nursery keepsakes.",
-    "New Home": "Best for move-in dates, first home gifts, renovations, addresses, and housewarming moments.",
-    "Personal Milestones": "Best for graduations, recovery stories, career moments, travel, and personal achievements.",
-  };
-
-  return prompts[collection];
-}
-
-function formatNumber(value: string) {
-  const padded = value.padEnd(12, "0");
-  return `${padded.slice(0, 4)} · ${padded.slice(4, 8)} · ${padded.slice(8, 12)}`;
-}
-
-function paletteClass(palette: string) {
-  return `palette-${palette.toLowerCase().replaceAll(" ", "-").replaceAll("&", "and")}`;
-}
-
-function getPrice(size: string, finish: string) {
-  const baseBySize: Record<string, number> = {
-    "8 x 8": 49,
-    "10 x 10": 69,
-    "12 x 12": 89,
-    "16 x 16": 129,
-    "20 x 20": 189,
-    "30 x 30": 329,
-  };
-
-  const finishAdd: Record<string, number> = {
-    "Digital Proof Only": 19,
-    "Fine Art Print Only": 0,
-    "Floating Maple Frame": 90,
-    "Shadow Box Frame": 120,
-  };
-
-  return (baseBySize[size] || 129) + (finishAdd[finish] || 0);
-}
-
-
-function digitSum(value: string) {
-  return value.split("").reduce((sum, char) => sum + (Number(char) || 0), 0);
-}
-
-function dateSeed(primaryDate: string, milestones: Milestone[]) {
-  const source = [primaryDate, ...milestones.map((m) => m.date)]
-    .join("")
-    .replace(/\D/g, "");
-
-  return source || "1123581321345589";
-}
-
-function fibonacciValue(index: number) {
-  const sequence = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
-  return sequence[index % sequence.length];
-}
-
-function createSpiroPoints({
-  cx,
-  cy,
-  outerRadius,
-  innerRadius,
-  petals,
-  phase,
-  steps = 420,
-}: {
-  cx: number;
-  cy: number;
-  outerRadius: number;
-  innerRadius: number;
-  petals: number;
-  phase: number;
-  steps?: number;
-}) {
-  const points: string[] = [];
-
-  for (let i = 0; i <= steps; i += 1) {
-    const t = (Math.PI * 2 * i) / steps;
-    const r =
-      outerRadius +
-      Math.sin(t * petals + phase) * innerRadius +
-      Math.cos(t * (petals + 3) - phase) * (innerRadius * 0.38);
-
-    const x = cx + Math.cos(t) * r;
-    const y = cy + Math.sin(t) * r;
-
-    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-
-  return points.join(" ");
-}
-
-function SpirographPreview({
-  seed,
-  palette,
-  milestoneCount,
-}: {
-  seed: string;
-  palette: string;
-  milestoneCount: number;
-}) {
-  const digits = seed.padEnd(24, "1123581321345589").split("").map((d) => Number(d) || 1);
-  const sum = digitSum(seed);
-  const paletteColors = getSpiroPalette(palette);
-
-  const clusters = [
-    {
-      cx: 198 + digits[0] * 2,
-      cy: 155 + digits[1],
-      radius: 62 + digits[2] * 2,
-      inner: 14 + digits[3],
-      petals: 22 + fibonacciValue(digits[4]) % 16,
-      color: paletteColors[0],
-      opacity: 0.7,
-      stroke: 1.05,
-      phase: sum / 8,
-    },
-    {
-      cx: 126 + digits[5] * 3,
-      cy: 224 + digits[6],
-      radius: 54 + digits[7] * 2,
-      inner: 18 + digits[8],
-      petals: 12 + fibonacciValue(digits[9]) % 10,
-      color: paletteColors[1],
-      opacity: 0.68,
-      stroke: 1.0,
-      phase: sum / 11,
-    },
-    {
-      cx: 278 - digits[10] * 2,
-      cy: 276 - digits[11],
-      radius: 48 + digits[12] * 2,
-      inner: 16 + digits[13],
-      petals: 9 + fibonacciValue(digits[14]) % 9,
-      color: paletteColors[2],
-      opacity: 0.75,
-      stroke: 1.0,
-      phase: sum / 13,
-    },
-    {
-      cx: 214 + digits[15],
-      cy: 236 - digits[16] * 2,
-      radius: 36 + milestoneCount * 4,
-      inner: 9 + digits[17],
-      petals: 7 + fibonacciValue(digits[18]) % 8,
-      color: paletteColors[3],
-      opacity: 0.48,
-      stroke: 0.9,
-      phase: sum / 15,
-    },
-    {
-      cx: 210,
-      cy: 205,
-      radius: 130 + digits[19] * 4,
-      inner: 6 + milestoneCount,
-      petals: 3 + (digits[20] % 5),
-      color: paletteColors[4],
-      opacity: 0.28,
-      stroke: 0.85,
-      phase: sum / 21,
-    },
-  ];
-
-  return (
-    <svg className="spirograph-svg layered-spirograph" viewBox="0 0 420 420" role="img" aria-label="Layered date-generated spirograph artwork preview">
-      <defs>
-        <radialGradient id="softPaperGlow" cx="50%" cy="45%" r="65%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
-          <stop offset="55%" stopColor="rgba(255,255,255,0.16)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-        </radialGradient>
-      </defs>
-
-      <circle cx="210" cy="210" r="196" fill="url(#softPaperGlow)" />
-
-      <g className="fibonacci-guides">
-        {[55, 89, 144, 233].map((radius, index) => (
-          <circle
-            key={radius}
-            cx={190 + index * 7}
-            cy={205 - index * 5}
-            r={radius}
-            fill="none"
-            stroke={paletteColors[4]}
-            strokeWidth="0.7"
-            opacity={0.13 - index * 0.015}
-          />
-        ))}
-      </g>
-
-      {clusters.map((cluster, index) => (
-        <g key={index} transform={`rotate(${(sum * (index + 1) + fibonacciValue(index) * 9) % 360} ${cluster.cx} ${cluster.cy})`}>
-          <polyline
-            points={createSpiroPoints({
-              cx: cluster.cx,
-              cy: cluster.cy,
-              outerRadius: cluster.radius,
-              innerRadius: cluster.inner,
-              petals: cluster.petals,
-              phase: cluster.phase,
-            })}
-            fill="none"
-            stroke={cluster.color}
-            strokeWidth={cluster.stroke}
-            opacity={cluster.opacity}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          <polyline
-            points={createSpiroPoints({
-              cx: cluster.cx,
-              cy: cluster.cy,
-              outerRadius: cluster.radius * 0.72,
-              innerRadius: cluster.inner * 0.55,
-              petals: Math.max(5, Math.floor(cluster.petals / 2)),
-              phase: cluster.phase + 1.618,
-              steps: 300,
-            })}
-            fill="none"
-            stroke={cluster.color}
-            strokeWidth="0.75"
-            opacity={cluster.opacity * 0.45}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          <circle cx={cluster.cx} cy={cluster.cy} r="2.8" fill={cluster.color} opacity={Math.min(0.85, cluster.opacity + 0.1)} />
-        </g>
-      ))}
-
-      <g className="date-pin-group">
-        {digits.slice(0, 9).map((digit, index) => {
-          const angle = (Math.PI * 2 * index) / 9 + sum / 100;
-          const radius = 24 + fibonacciValue(index + digit) * 0.7;
-          const x = 210 + Math.cos(angle) * radius;
-          const y = 210 + Math.sin(angle) * radius;
-
-          return (
-            <circle
-              key={index}
-              cx={x}
-              cy={y}
-              r={index % 3 === 0 ? 2.5 : 1.8}
-              fill={paletteColors[index % paletteColors.length]}
-              opacity="0.62"
-            />
-          );
-        })}
-      </g>
-    </svg>
-  );
-}
-
-function getSpiroPalette(palette: string) {
-  const palettes: Record<string, string[]> = {
-    "Gallery Modern": ["#d6aa31", "#1e3147", "#dd7f45", "#9cc4dd", "#7fa0aa"],
-    "Warm Neutral": ["#c99556", "#8f6238", "#d9ba87", "#9f8b76", "#6f6258"],
-    "Classic Black & Cream": ["#1f1a17", "#55504a", "#a9a197", "#d2c7b7", "#786f65"],
-    "Sage & Sand": ["#8d9a69", "#5f6f55", "#d1b177", "#b2bea2", "#78909a"],
-    "Soft Blue": ["#7fa6c1", "#24425f", "#bed4e6", "#ddbb67", "#91aebd"],
-    "Rose Clay": ["#b56f65", "#864a44", "#d7a38f", "#d6b85f", "#8aa0a6"],
-  };
-
-  return palettes[palette] || palettes["Gallery Modern"];
-}
-
-
-function Styles() {
-  return (
-    <style>{`
-      :root {
-        --cream: #f7f1e8;
-        --cream-soft: #fffaf2;
-        --ink: #1f1a17;
-        --muted: #70645c;
-        --maple: #b88957;
-        --maple-dark: #8f6238;
-        --white: #ffffff;
-        --line: rgba(31, 26, 23, 0.1);
-        --shadow: 0 24px 70px rgba(31, 26, 23, 0.14);
-      }
-
-      * { box-sizing: border-box; }
-
-      html { scroll-behavior: smooth; }
-
-      body {
-        margin: 0;
-        font-family: Inter, Arial, sans-serif;
-        background: var(--cream);
-        color: var(--ink);
-      }
-
-      button, input, select { font: inherit; }
-
-      button { border: 0; }
-
-      .page {
-        min-height: 100vh;
-        overflow-x: hidden;
-        background:
-          radial-gradient(circle at 12% 0%, rgba(184, 137, 87, 0.18), transparent 32%),
-          linear-gradient(135deg, #f8f1e7 0%, #efe1cf 100%);
-      }
-
-      .site-header {
-        position: fixed;
-        z-index: 100;
-        top: 0;
-        left: 0;
-        width: 100%;
-        padding: 20px 7%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 24px;
-        background: rgba(247, 241, 232, 0.88);
-        backdrop-filter: blur(18px);
-        border-bottom: 1px solid rgba(31, 26, 23, 0.06);
-      }
-
-      .brand-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 12px;
-        background: transparent;
-        color: var(--ink);
-        cursor: pointer;
-        padding: 0;
-        text-align: left;
-      }
-
-      .brand-mark {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        background: var(--ink);
-        color: var(--cream);
-        display: grid;
-        place-items: center;
-        font-weight: 900;
-      }
-
-      .brand-text strong {
-        display: block;
-        font-size: 18px;
-        letter-spacing: -0.04em;
-        line-height: 1;
-      }
-
-      .brand-text em {
-        display: block;
-        font-size: 12px;
-        color: var(--muted);
-        font-style: normal;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-top: 3px;
-      }
-
-      .desktop-nav {
-        display: flex;
-        align-items: center;
-        gap: 26px;
-      }
-
-      .desktop-nav a,
-      .desktop-nav button {
-        color: var(--muted);
-        background: transparent;
-        text-decoration: none;
-        cursor: pointer;
-        font-weight: 850;
-      }
-
-      .desktop-nav .nav-cta {
-        min-height: 44px;
-        padding: 0 20px;
-        border-radius: 999px;
-        color: white;
-        background: var(--ink);
-        box-shadow: 0 14px 32px rgba(31, 26, 23, 0.16);
-      }
-
-      .home-hero {
-        min-height: 100vh;
-        display: grid;
-        grid-template-columns: 0.95fr 1.05fr;
-        gap: 54px;
-        align-items: center;
-        padding: 150px 7% 90px;
-      }
-
-      .home-copy { max-width: 690px; }
-
-      .eyebrow {
-        margin: 0 0 16px;
-        color: var(--maple-dark);
-        font-size: 13px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-      }
-
-      .home-copy h1,
-      .creator-hero h1,
-      .section-heading h2,
-      .final-cta h2 {
-        margin: 0;
-        font-size: clamp(44px, 6vw, 86px);
-        line-height: 0.94;
-        letter-spacing: -0.075em;
-      }
-
-      .home-copy h1 span { color: var(--maple-dark); }
-
-      .home-copy p,
-      .creator-hero p,
-      .section-heading p {
-        color: var(--muted);
-        font-size: 19px;
-        line-height: 1.65;
-      }
-
-      .button-row {
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-top: 34px;
-      }
-
-      .primary-button,
-      .secondary-button {
-        min-height: 56px;
-        padding: 0 30px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 900;
-        text-decoration: none;
-        cursor: pointer;
-      }
-
-      .primary-button {
-        color: white;
-        background: var(--ink);
-        box-shadow: 0 18px 44px rgba(31, 26, 23, 0.18);
-      }
-
-      .secondary-button {
-        color: var(--ink);
-        background: rgba(255, 255, 255, 0.74);
-        border: 1px solid var(--line);
-      }
-
-      .trust-row {
-        margin-top: 26px;
-        display: flex;
-        gap: 18px;
-        flex-wrap: wrap;
-        color: var(--muted);
-        font-weight: 850;
-      }
-
-      .trust-row span::before {
-        content: "•";
-        color: var(--maple-dark);
-        margin-right: 8px;
-      }
-
-      .home-image-card {
-        position: relative;
-        border-radius: 34px;
-        overflow: hidden;
-        background: #eee1d0;
-        box-shadow: var(--shadow);
-      }
-
-      .home-image-card img {
-        display: block;
-        width: 100%;
-        aspect-ratio: 4 / 3;
-        object-fit: cover;
-        filter: contrast(1.05) saturate(1.03);
-      }
-
-      .home-image-note {
-        position: absolute;
-        left: 24px;
-        bottom: 24px;
-        width: min(280px, calc(100% - 48px));
-        padding: 18px;
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.86);
-        backdrop-filter: blur(14px);
-        box-shadow: 0 16px 40px rgba(31, 26, 23, 0.14);
-      }
-
-      .home-image-note span {
-        display: block;
-        margin-top: 6px;
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.45;
-      }
-
-      .section { padding: 96px 7%; }
-
-      .soft-section { background: rgba(255, 250, 242, 0.72); }
-
-      .section-heading {
-        max-width: 780px;
-        margin-bottom: 42px;
-      }
-
-      .section-heading h2,
-      .final-cta h2 {
-        font-size: clamp(38px, 5vw, 68px);
-      }
-
-      .collection-grid,
-      .steps-grid {
-        display: grid;
-        gap: 22px;
-      }
-
-      .collection-grid { grid-template-columns: repeat(3, 1fr); }
-
-      .steps-grid { grid-template-columns: repeat(4, 1fr); }
-
-      .collection-card,
-      .steps-grid div {
-        text-align: left;
-        min-height: 230px;
-        border-radius: 28px;
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.66);
-        padding: 26px;
-        box-shadow: 0 16px 44px rgba(31, 26, 23, 0.06);
-      }
-
-      .collection-card {
-        color: var(--ink);
-        cursor: pointer;
-      }
-
-      .collection-card span {
-        display: block;
-        font-size: 24px;
-        font-weight: 900;
-        letter-spacing: -0.04em;
-      }
-
-      .collection-card p,
-      .steps-grid p {
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .collection-card strong { color: var(--maple-dark); }
-
-      .steps-grid b {
-        width: 36px;
-        height: 36px;
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        background: var(--ink);
-        color: white;
-      }
-
-      .final-cta { text-align: center; }
-
-      .final-cta .primary-button { margin-top: 28px; }
-
-      .creator-main {
-        padding: 112px 7% 72px;
-      }
-
-      .back-link {
-        margin-bottom: 28px;
-        background: transparent;
-        color: var(--maple-dark);
-        font-weight: 900;
-        cursor: pointer;
-      }
-
-      .creator-hero-grid {
-        display: grid;
-        grid-template-columns: 1fr 250px;
-        gap: 24px;
-        align-items: end;
-        margin-bottom: 24px;
-      }
-
-      .creator-hero h1 {
-        max-width: 900px;
-        font-size: clamp(42px, 5vw, 72px);
-      }
-
-      .compact-intro {
-        max-width: 780px;
-        margin-top: 18px;
-        margin-bottom: 0;
-      }
-
-      .mini-summary-card {
-        padding: 22px;
-        border-radius: 26px;
-        background: rgba(255, 255, 255, 0.74);
-        border: 1px solid var(--line);
-        box-shadow: 0 18px 50px rgba(31, 26, 23, 0.08);
-      }
-
-      .mini-summary-card span,
-      .mini-summary-card p {
-        color: var(--muted);
-        font-size: 14px;
-      }
-
-      .mini-summary-card strong,
-      .mini-summary-card b {
-        display: block;
-      }
-
-      .mini-summary-card strong {
-        margin: 8px 0 6px;
-        font-size: 20px;
-      }
-
-      .mini-summary-card b {
-        font-size: 34px;
-        letter-spacing: -0.05em;
-      }
-
-      .studio-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
-        gap: 28px;
-        align-items: start;
-      }
-
-      .studio-form {
-        display: grid;
-        gap: 20px;
-      }
-
-      .progress-strip {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-      }
-
-      .progress-strip span {
-        padding: 12px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.55);
-        color: var(--muted);
-        text-align: center;
-        font-size: 13px;
-        font-weight: 900;
-      }
-
-      .progress-strip .active {
-        background: var(--ink);
-        color: white;
-      }
-
-      .studio-card,
-      .order-panel,
-      .preview-shell {
-        border-radius: 30px;
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.76);
-        box-shadow: 0 18px 50px rgba(31, 26, 23, 0.08);
-      }
-
-      .studio-card { padding: 26px; }
-
-      .card-heading,
-      .heading-left {
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-      }
-
-      .card-heading {
-        margin-bottom: 22px;
-      }
-
-      .card-heading.between {
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .card-heading span,
-      .heading-left span {
-        flex: 0 0 auto;
-        width: 38px;
-        height: 38px;
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        background: var(--ink);
-        color: white;
-        font-weight: 900;
-      }
-
-      .card-heading h2,
-      .heading-left h2,
-      .order-panel strong {
-        margin: 0 0 5px;
-        font-size: 25px;
-        letter-spacing: -0.045em;
-      }
-
-      .card-heading p,
-      .heading-left p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.55;
-      }
-
-      .story-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .story-choice {
-        text-align: left;
-        padding: 16px;
-        border-radius: 20px;
-        border: 1px solid var(--line);
-        background: rgba(247, 241, 232, 0.72);
-        color: var(--ink);
-        cursor: pointer;
-      }
-
-      .story-choice.selected {
-        border-color: rgba(143, 98, 56, 0.55);
-        background: rgba(184, 137, 87, 0.16);
-        box-shadow: inset 0 0 0 1px rgba(143, 98, 56, 0.18);
-      }
-
-      .story-choice strong,
-      .story-choice small {
-        display: block;
-      }
-
-      .story-choice small {
-        margin-top: 6px;
-        color: var(--muted);
-        line-height: 1.4;
-      }
-
-      .guidance-box {
-        margin-top: 16px;
-        padding: 16px;
-        border-radius: 18px;
-        background: rgba(31, 26, 23, 0.06);
-      }
-
-      .guidance-box p {
-        margin: 5px 0 0;
-        color: var(--muted);
-        line-height: 1.5;
-      }
-
-      label {
-        display: grid;
-        gap: 8px;
-        margin-bottom: 16px;
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 900;
-      }
-
-      input,
-      select {
-        width: 100%;
-        min-height: 50px;
-        border-radius: 15px;
-        border: 1px solid rgba(31, 26, 23, 0.14);
-        background: rgba(255, 255, 255, 0.92);
-        color: var(--ink);
-        padding: 0 14px;
-        outline: none;
-      }
-
-      input:focus,
-      select:focus {
-        border-color: var(--maple-dark);
-        box-shadow: 0 0 0 4px rgba(184, 137, 87, 0.13);
-      }
-
-      .two-col,
-      .three-col {
-        display: grid;
-        gap: 14px;
-      }
-
-      .two-col { grid-template-columns: repeat(2, 1fr); }
-
-      .three-col { grid-template-columns: repeat(3, 1fr); }
-
-      .small-dark-button {
-        min-height: 42px;
-        padding: 0 17px;
-        border-radius: 999px;
-        background: var(--ink);
-        color: white;
-        font-weight: 900;
-        cursor: pointer;
-      }
-
-      .milestone-list {
-        display: grid;
-        gap: 12px;
-      }
-
-      .milestone-row {
-        display: grid;
-        grid-template-columns: 38px 1fr 180px auto;
-        gap: 12px;
-        align-items: end;
-        padding: 14px;
-        border-radius: 20px;
-        background: rgba(247, 241, 232, 0.74);
-        border: 1px solid rgba(31, 26, 23, 0.06);
-      }
-
-      .milestone-row label { margin: 0; }
-
-      .milestone-index {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: var(--cream-soft);
-        color: var(--maple-dark);
-        display: grid;
-        place-items: center;
-        font-weight: 900;
-        margin-bottom: 7px;
-      }
-
-      .remove-button {
-        min-height: 50px;
-        padding: 0 12px;
-        border-radius: 15px;
-        background: rgba(31, 26, 23, 0.08);
-        color: var(--ink);
-        cursor: pointer;
-        font-weight: 900;
-      }
-
-      .order-panel {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        align-items: center;
-        padding: 26px;
-        background: var(--ink);
-        color: white;
-      }
-
-      .order-panel span {
-        color: rgba(255, 255, 255, 0.66);
-        font-weight: 800;
-      }
-
-      .order-panel strong {
-        display: block;
-        margin-top: 4px;
-        color: white;
-        font-size: 38px;
-      }
-
-      .order-panel p {
-        max-width: 520px;
-        margin: 6px 0 0;
-        color: rgba(255, 255, 255, 0.72);
-      }
-
-      .order-panel .primary-button {
-        color: var(--ink);
-        background: white;
-        box-shadow: none;
-      }
-
-      .preview-side { position: relative; }
-
-      .preview-shell {
-        position: sticky;
-        top: 112px;
-        padding: 22px;
-        background:
-          linear-gradient(135deg, rgba(255,255,255,0.86), rgba(244,241,236,0.78));
-      }
-
-      .preview-topline {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        align-items: center;
-        margin-bottom: 14px;
-      }
-
-      .preview-topline .eyebrow { margin-bottom: 6px; }
-
-      .preview-topline strong {
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .preview-topline span {
-        font-size: 28px;
-        font-weight: 900;
-        letter-spacing: -0.05em;
-      }
-
-      .art-proof {
-        position: relative;
-        aspect-ratio: 1 / 1;
-        min-height: 0;
-        border-radius: 0;
-        padding: 74px;
-        border: 0;
-        background:
-          radial-gradient(circle at 48% 38%, rgba(255,255,255,0.96), rgba(238,238,236,0.92) 58%, rgba(222,222,220,0.95) 100%);
-        box-shadow: none;
-        display: grid;
-        place-items: center;
-        overflow: hidden;
-      }
-
-      .art-proof::before {
-        content: "";
-        position: absolute;
-        inset: 50px;
-        z-index: 0;
-        background: #ffffff;
-        border: 5px solid #8f7656;
-        box-shadow:
-          0 0 0 1px rgba(55, 43, 30, 0.22),
-          0 2px 2px rgba(255, 255, 255, 0.65) inset,
-          3px 4px 8px rgba(31, 26, 23, 0.24),
-          10px 14px 28px rgba(31, 26, 23, 0.10);
-      }
-
-      .art-proof::after {
-        content: "";
-        position: absolute;
-        inset: 60px;
-        z-index: 0;
-        border: 1px solid rgba(31, 26, 23, 0.10);
-        background: #ffffff;
-        box-shadow:
-          inset 0 0 0 1px rgba(255,255,255,0.92),
-          inset 0 0 16px rgba(31,26,23,0.035);
-        pointer-events: none;
-      }
-
-      .palette-classic-black-and-cream {
-        background: #ffffff;
-        border-color: #1f1a17;
-      }
-
-      .palette-sage-and-sand {
-        background: #ffffff;
-        border-color: #9aa27c;
-      }
-
-      .palette-soft-blue {
-        background: #ffffff;
-        border-color: #9eb4c5;
-      }
-
-      .palette-rose-clay {
-        background: #ffffff;
-        border-color: #be8a7e;
-      }
-
-      .proof-meta {
-        position: relative;
-        z-index: 2;
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        color: var(--maple-dark);
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-size: 10px;
-        font-weight: 900;
-        padding: 0 2px;
-      }
-
-      .proof-geometry {
-        position: relative;
-        z-index: 2;
-        width: min(72%, 360px);
-        aspect-ratio: 1 / 1;
-        height: auto;
-        margin: 0 auto;
-        display: grid;
-        place-items: center;
-      }
-
-      .spirograph-wrap {
-        color: rgba(31, 26, 23, 0.92);
-      }
-
-      .spirograph-svg {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        overflow: visible;
-      }
-
-      .layered-spirograph {
-        color: rgba(31, 26, 23, 0.92);
-        filter: saturate(1.02);
-      }
-
-      .fibonacci-guides {
-        mix-blend-mode: multiply;
-      }
-
-      .date-pin-group {
-        mix-blend-mode: multiply;
-      }
-
-      .proof-number {
-        position: absolute;
-        inset: 50%;
-        transform: translate(-50%, -50%);
-        width: 118px;
-        height: 118px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        padding: 18px;
-        text-align: center;
-        background: var(--ink);
-        color: var(--cream);
-        font-size: 13px;
-        line-height: 1.3;
-        letter-spacing: 0.06em;
-        font-weight: 900;
-      }
-
-      .proof-title {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        margin-top: 0;
-      }
-
-      .proof-title h2 {
-        margin: 0;
-        font-size: 24px;
-        line-height: 1;
-        letter-spacing: -0.045em;
-      }
-
-      .proof-title p {
-        margin: 6px 0 0;
-        color: var(--muted);
-        font-size: 11px;
-      }
-
-      .proof-dates {
-        position: relative;
-        z-index: 2;
-        margin-top: auto;
-        display: grid;
-        gap: 4px;
-      }
-
-      .proof-dates div {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 4px 0;
-        border-bottom: 1px solid rgba(31, 26, 23, 0.06);
-        font-size: 10px;
-      }
-
-      .proof-dates strong { color: var(--ink); }
-
-      .proof-dates span { color: var(--muted); }
-
-      .proof-footer {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        margin-top: 10px;
-        color: var(--maple-dark);
-        font-size: 9px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-      }
-
-      .what-happens-next {
-        padding: 20px 4px 2px;
-      }
-
-      .what-happens-next h3 {
-        margin: 0 0 10px;
-      }
-
-      .what-happens-next ol {
-        margin: 0;
-        padding-left: 20px;
-        color: var(--muted);
-        line-height: 1.65;
-        font-size: 14px;
-      }
-
-      @media (max-width: 1100px) {
-        .home-hero,
-        .studio-layout,
-        .creator-hero-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .preview-shell {
-          position: static;
-        }
-
-        .collection-grid,
-        .steps-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-
-      @media (max-width: 760px) {
-        .site-header {
-          padding: 16px 5%;
-        }
-
-        .desktop-nav {
-          display: none;
-        }
-
-        .home-hero,
-        .creator-main {
-          padding: 118px 5% 68px;
-        }
-
-        .home-copy h1,
-        .creator-hero h1 {
-          font-size: clamp(42px, 13vw, 64px);
-        }
-
-        .button-row,
-        .order-panel {
-          flex-direction: column;
-          align-items: stretch;
-        }
-
-        .primary-button,
-        .secondary-button {
-          width: 100%;
-        }
-
-        .section {
-          padding: 74px 5%;
-        }
-
-        .collection-grid,
-        .steps-grid,
-        .story-grid,
-        .two-col,
-        .three-col,
-        .progress-strip {
-          grid-template-columns: 1fr;
-        }
-
-        .milestone-row {
-          grid-template-columns: 38px 1fr;
-        }
-
-        .milestone-row label,
-        .milestone-row .remove-button {
-          grid-column: 2;
-        }
-
-        .art-proof {
-          min-height: 0;
-          padding: 50px;
-        }
-
-        .art-proof::before {
-          inset: 32px;
-          border-width: 4px;
-        }
-
-        .art-proof::after {
-          inset: 40px;
-        }
-
-        .proof-geometry {
-          width: 74%;
-          aspect-ratio: 1 / 1;
-          height: auto;
-          margin: 0 auto;
-        }
-
-        .encoded-date-line {
-          bottom: -8px;
-          font-size: 8px;
-        }
-      }
-    `}</style>
+            <aside className="preview-panel">
+              <div className="preview-top">
+                <div>
+                  <div className="eyebrow">ARTWORK PREVIEW</div>
+                  <div className="meta">20 × 20 · Floating Maple Frame</div>
+                </div>
+                <div className="preview-price">${preset.price}</div>
+              </div>
+
+              <ArtworkPreview
+                storyType={storyType}
+                title={title}
+                subtitle={subtitle}
+                primaryDate={primaryDate}
+                milestones={milestones}
+                palette={palette}
+              />
+
+              <div className="explain-box">
+                <h4>HOW THE ART IS GENERATED</h4>
+                <ul>
+                  <li><strong>Date:</strong> affects where each form sits in the composition.</li>
+                  <li><strong>Importance:</strong> affects size, density, and prominence.</li>
+                  <li><strong>Category:</strong> affects the line color used for that milestone.</li>
+                  <li><strong>Anchor date:</strong> acts as the center point the overall composition responds to.</li>
+                </ul>
+              </div>
+            </aside>
+          </section>
+        </main>
+      </div>
+    </>
   );
 }
