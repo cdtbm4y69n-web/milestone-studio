@@ -171,166 +171,162 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: numb
   };
 }
 
-function buildRosettePath(
-  cx: number,
-  cy: number,
-  radius: number,
-  amplitude: number,
-  petals: number,
-  twist: number,
-  points = 720,
-) {
-  const commands: string[] = [];
+function milestoneSeed(primaryDate: string, milestones: Milestone[]) {
+  const source = [primaryDate, ...milestones.map((m) => `${m.label}${m.date}${m.importance}${m.category}`)]
+    .join("")
+    .replace(/[^a-zA-Z0-9]/g, "");
 
-  for (let i = 0; i <= points; i += 1) {
-    const t = (Math.PI * 2 * i) / points;
-    const wobble =
-      Math.sin(t * petals + twist) * amplitude +
-      Math.cos(t * (petals + 5) - twist) * amplitude * 0.28;
-    const r = radius + wobble;
+  return source || "1123581321345589";
+}
+
+function seededValue(seed: string, index: number) {
+  const charCodeTotal = seed
+    .split("")
+    .reduce((sum, char, charIndex) => sum + char.charCodeAt(0) * (charIndex + 3 + index), 0);
+
+  const raw = Math.sin(charCodeTotal * 12.9898 + index * 78.233) * 43758.5453;
+  return raw - Math.floor(raw);
+}
+
+function createEarlierSpiroPoints({
+  cx,
+  cy,
+  outerRadius,
+  innerRadius,
+  petals,
+  phase,
+  steps = 560,
+}: {
+  cx: number;
+  cy: number;
+  outerRadius: number;
+  innerRadius: number;
+  petals: number;
+  phase: number;
+  steps?: number;
+}) {
+  const points: string[] = [];
+
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (Math.PI * 2 * i) / steps;
+    const r =
+      outerRadius +
+      Math.sin(t * petals + phase) * innerRadius +
+      Math.cos(t * (petals + 3) - phase) * (innerRadius * 0.38);
+
     const x = cx + Math.cos(t) * r;
     const y = cy + Math.sin(t) * r;
 
-    commands.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+    points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
   }
 
-  return `${commands.join(' ')} Z`;
+  return points.join(" ");
 }
 
-function buildSpiroFlowerPath(
-  cx: number,
-  cy: number,
-  outerRadius: number,
-  innerRadius: number,
-  lobeRadius: number,
-  rotations: number,
-  points = 920,
-) {
-  const commands: string[] = [];
-
-  for (let i = 0; i <= points; i += 1) {
-    const t = (Math.PI * 2 * rotations * i) / points;
-    const ratio = (outerRadius - innerRadius) / Math.max(innerRadius, 1);
-    const x =
-      cx +
-      (outerRadius - innerRadius) * Math.cos(t) +
-      lobeRadius * Math.cos(ratio * t);
-    const y =
-      cy +
-      (outerRadius - innerRadius) * Math.sin(t) -
-      lobeRadius * Math.sin(ratio * t);
-
-    commands.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
-  }
-
-  return commands.join(' ');
+function getEarlierSpiroPalette(palette: Palette) {
+  return palette.lines;
 }
 
-function labelDigitSeed(label: string, date: string) {
-  return digitSum(`${label}${date}`) || 8;
-}
-
-function generateArtworkNodes(
+function buildEarlierPlacementClusters(
+  primaryDate: string,
   milestones: Milestone[],
-  anchorDate: string,
   palette: Palette,
 ) {
   const validMilestones = milestones
     .filter((m) => m.label.trim() && m.date)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  if (!validMilestones.length || !anchorDate) {
-    return {
-      guideRings: [] as Array<{ cx: number; cy: number; r: number; color: string; opacity: number }>,
-      blooms: [] as Array<{
-        id: number;
-        x: number;
-        y: number;
-        color: string;
-        strokeWidth: number;
-        opacity: number;
-        mainPath: string;
-        innerPath: string;
-        rotate: number;
-        importance: number;
-      }>,
-      connectorPath: '',
-    };
-  }
+  const seed = milestoneSeed(primaryDate, validMilestones);
+  const colors = getEarlierSpiroPalette(palette);
+  const anchorSum = digitSum(primaryDate);
+  const milestoneCount = Math.max(validMilestones.length, 1);
 
-  const dates = [anchorDate, ...validMilestones.map((m) => m.date)].map((date) =>
-    new Date(date + 'T00:00:00').getTime(),
-  );
-  const minTime = Math.min(...dates);
-  const maxTime = Math.max(...dates);
-  const totalRange = Math.max(maxTime - minTime, 86400000 * 30);
-  const anchorSeed = digitSum(anchorDate);
-
-  const centerX = 320;
-  const centerY = 316;
-  const goldenAngle = 137.507764;
-
-  const basePositions = [
-    { x: 430, y: 222, scale: 1.55 }, // dominant upper-right bloom
-    { x: 220, y: 345, scale: 1.25 }, // dark left bloom
-    { x: 436, y: 422, scale: 0.96 }, // warm lower-right bloom
-    { x: 338, y: 366, scale: 0.84 }, // pale center bloom
-    { x: 284, y: 280, scale: 0.74 }, // light bridge bloom
-    { x: 506, y: 326, scale: 0.66 }, // outer accent
-    { x: 168, y: 248, scale: 0.68 }, // far-left accent
+  const oldPlacementBlueprint = [
+    {
+      cx: 336,
+      cy: 188,
+      radius: 96,
+      inner: 19,
+      petals: 30,
+      colorIndex: 2,
+      opacity: 0.72,
+      stroke: 1.05,
+      role: "dominant",
+    },
+    {
+      cx: 176,
+      cy: 272,
+      radius: 82,
+      inner: 22,
+      petals: 16,
+      colorIndex: 1,
+      opacity: 0.7,
+      stroke: 1.05,
+      role: "structural",
+    },
+    {
+      cx: 410,
+      cy: 368,
+      radius: 66,
+      inner: 19,
+      petals: 12,
+      colorIndex: 4,
+      opacity: 0.72,
+      stroke: 1,
+      role: "warm",
+    },
+    {
+      cx: 286,
+      cy: 332,
+      radius: 54,
+      inner: 13,
+      petals: 18,
+      colorIndex: 3,
+      opacity: 0.38,
+      stroke: 0.9,
+      role: "pale",
+    },
+    {
+      cx: 324,
+      cy: 270,
+      radius: 38,
+      inner: 10,
+      petals: 9,
+      colorIndex: 0,
+      opacity: 0.46,
+      stroke: 0.85,
+      role: "bridge",
+    },
   ];
 
-  const blooms = validMilestones.map((milestone, index) => {
-    const time = new Date(milestone.date + 'T00:00:00').getTime();
-    const normalizedTime = clamp((time - minTime) / totalRange, 0, 1);
-    const importance = clamp(milestone.importance, 1, 5);
-    const seed = labelDigitSeed(milestone.label, milestone.date);
-    const base = basePositions[index % basePositions.length];
+  return oldPlacementBlueprint.map((blueprint, index) => {
+    const milestone = validMilestones[index % milestoneCount];
+    const importance = milestone ? clamp(milestone.importance, 1, 5) : 3;
+    const label = milestone?.label ?? "Milestone";
+    const date = milestone?.date ?? primaryDate;
+    const category = milestone?.category ?? "Other";
+    const localSeed = `${seed}${label}${date}${index}`;
 
-    const spiralDrift = (normalizedTime - 0.5) * 78;
-    const angle = index * goldenAngle + seed * 4.7 + anchorSeed;
-    const dateNudge = polarToCartesian(0, 0, 20 + normalizedTime * 34, angle);
-
-    const x = base.x + dateNudge.x + Math.cos(index + anchorSeed) * spiralDrift * 0.32;
-    const y = base.y + dateNudge.y + Math.sin(index * 1.7 + anchorSeed) * spiralDrift * 0.26;
-
-    const color = palette.lines[categoryColorIndex[milestone.category] % palette.lines.length];
-
-    const outerRadius = (24 + importance * 8 + (seed % 9)) * base.scale;
-    const innerRadius = Math.max(8, outerRadius * (0.38 + (seed % 4) * 0.035));
-    const lobeRadius = outerRadius * (0.42 + importance * 0.035);
-    const rotations = 8 + importance * 2 + (seed % 7);
-
-    const rosetteRadius = outerRadius * (0.74 + (seed % 3) * 0.05);
-    const amplitude = outerRadius * (0.16 + importance * 0.018);
-    const petals = 9 + (seed % 18);
+    const dateWeight = digitSum(date);
+    const categoryShift = categoryColorIndex[category] ?? index;
+    const jitterX = (seededValue(localSeed, 1) - 0.5) * 34;
+    const jitterY = (seededValue(localSeed, 2) - 0.5) * 34;
+    const importanceScale = 0.86 + importance * 0.075;
 
     return {
-      id: milestone.id,
-      x,
-      y,
-      color,
-      strokeWidth: 0.72 + importance * 0.16,
-      opacity: 0.48 + importance * 0.075,
-      mainPath: buildSpiroFlowerPath(x, y, outerRadius, innerRadius, lobeRadius, rotations),
-      innerPath: buildRosettePath(x, y, rosetteRadius, amplitude, petals, seed / 7),
-      rotate: (seed * 19 + normalizedTime * 110) % 360,
-      importance,
+      ...blueprint,
+      cx: blueprint.cx + jitterX,
+      cy: blueprint.cy + jitterY,
+      radius: blueprint.radius * importanceScale + (dateWeight % 9),
+      inner: blueprint.inner + importance * 1.8 + (dateWeight % 5),
+      petals: blueprint.petals + (dateWeight % 8) + categoryShift,
+      color: colors[(blueprint.colorIndex + categoryShift) % colors.length],
+      opacity: Math.min(0.86, blueprint.opacity + importance * 0.018),
+      stroke: blueprint.stroke + importance * 0.04,
+      phase: (anchorSum + dateWeight + index * 13) / 9,
+      rotation: (anchorSum * (index + 1) + dateWeight * 7 + seededValue(localSeed, 3) * 90) % 360,
     };
   });
-
-  const connectorPath = blooms
-    .map((bloom, index) => `${index === 0 ? 'M' : 'L'} ${bloom.x.toFixed(2)} ${bloom.y.toFixed(2)}`)
-    .join(' ');
-
-  const guideRings = [
-    { cx: centerX - 24, cy: centerY + 4, r: 132, color: palette.lines[3], opacity: 0.14 },
-    { cx: centerX + 16, cy: centerY - 22, r: 214, color: palette.lines[3], opacity: 0.11 },
-    { cx: centerX + 6, cy: centerY - 18, r: 318, color: palette.lines[3], opacity: 0.085 },
-    { cx: centerX + 64, cy: centerY - 20, r: 89, color: palette.lines[0], opacity: 0.12 },
-  ];
-
-  return { guideRings, blooms, connectorPath };
 }
 
 function ArtworkPreview({
@@ -348,10 +344,12 @@ function ArtworkPreview({
   milestones: Milestone[];
   palette: Palette;
 }) {
-  const artwork = useMemo(
-    () => generateArtworkNodes(milestones, primaryDate, palette),
-    [milestones, primaryDate, palette],
+  const clusters = useMemo(
+    () => buildEarlierPlacementClusters(primaryDate, milestones, palette),
+    [primaryDate, milestones, palette],
   );
+
+  const guideColor = palette.lines[3] || palette.accent;
 
   return (
     <div className="preview-sheet-wrap">
@@ -361,56 +359,69 @@ function ArtworkPreview({
             <svg viewBox="0 0 640 640" className="art-svg full-art-svg" aria-label="Generated interpretive artwork preview">
               <rect x="0" y="0" width="640" height="640" fill="#ffffff" />
 
-              {artwork.guideRings.map((ring, index) => (
-                <circle
-                  key={`ring-${index}`}
-                  cx={ring.cx}
-                  cy={ring.cy}
-                  r={ring.r}
-                  fill="none"
-                  stroke={ring.color}
-                  strokeOpacity={ring.opacity}
-                  strokeWidth="1"
-                />
+              <g className="fibonacci-guides">
+                <circle cx="292" cy="320" r="104" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.13" />
+                <circle cx="330" cy="292" r="166" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.11" />
+                <circle cx="348" cy="276" r="256" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.09" />
+                <circle cx="356" cy="268" r="398" fill="none" stroke={guideColor} strokeWidth="0.8" opacity="0.07" />
+              </g>
+
+              <path
+                d={`M ${clusters.map((cluster) => `${cluster.cx.toFixed(2)} ${cluster.cy.toFixed(2)}`).join(" L ")}`}
+                fill="none"
+                stroke={palette.ink}
+                strokeOpacity="0.16"
+                strokeWidth="1.2"
+                strokeDasharray="7 13"
+              />
+
+              {clusters.map((cluster, index) => (
+                <g key={`${cluster.role}-${index}`} transform={`rotate(${cluster.rotation} ${cluster.cx} ${cluster.cy})`}>
+                  <polyline
+                    points={createEarlierSpiroPoints({
+                      cx: cluster.cx,
+                      cy: cluster.cy,
+                      outerRadius: cluster.radius,
+                      innerRadius: cluster.inner,
+                      petals: cluster.petals,
+                      phase: cluster.phase,
+                      steps: index === 0 ? 760 : 560,
+                    })}
+                    fill="none"
+                    stroke={cluster.color}
+                    strokeWidth={cluster.stroke}
+                    opacity={cluster.opacity}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <polyline
+                    points={createEarlierSpiroPoints({
+                      cx: cluster.cx,
+                      cy: cluster.cy,
+                      outerRadius: cluster.radius * 0.66,
+                      innerRadius: cluster.inner * 0.52,
+                      petals: Math.max(6, Math.floor(cluster.petals / 2)),
+                      phase: cluster.phase + 1.618,
+                      steps: 380,
+                    })}
+                    fill="none"
+                    stroke={cluster.color}
+                    strokeWidth={Math.max(0.65, cluster.stroke - 0.28)}
+                    opacity={cluster.opacity * 0.52}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <circle
+                    cx={cluster.cx}
+                    cy={cluster.cy}
+                    r={2.2 + index * 0.18}
+                    fill={cluster.color}
+                    opacity={Math.min(0.8, cluster.opacity + 0.08)}
+                  />
+                </g>
               ))}
-
-              {artwork.connectorPath && (
-                <path
-                  d={artwork.connectorPath}
-                  fill="none"
-                  stroke={palette.ink}
-                  strokeOpacity="0.18"
-                  strokeWidth="1.2"
-                  strokeDasharray="7 13"
-                />
-              )}
-
-              {artwork.blooms
-                .slice()
-                .sort((a, b) => a.importance - b.importance)
-                .map((node) => (
-                  <g key={node.id} transform={`rotate(${node.rotate} ${node.x} ${node.y})`}>
-                    <path
-                      d={node.mainPath}
-                      fill="none"
-                      stroke={node.color}
-                      strokeOpacity={node.opacity}
-                      strokeWidth={node.strokeWidth}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d={node.innerPath}
-                      fill="none"
-                      stroke={node.color}
-                      strokeOpacity={Math.max(0.32, node.opacity - 0.22)}
-                      strokeWidth={Math.max(0.6, node.strokeWidth - 0.25)}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx={node.x} cy={node.y} r={2.4 + node.importance * 0.45} fill={node.color} fillOpacity="0.62" />
-                  </g>
-                ))}
             </svg>
           </div>
         </div>
@@ -556,7 +567,7 @@ export default function App() {
         .preview-sheet-wrap { padding: 6px 4px 2px; }
         .frame-mockup {
           background: linear-gradient(145deg, #d7b185 0%, #b8844f 42%, #d5ad7d 100%);
-          border-radius: 18px; padding: 10px; box-shadow:
+          border-radius: 30px; padding: 12px; box-shadow:
             inset 0 0 0 1px rgba(117,72,27,.25),
             inset 0 8px 22px rgba(255,255,255,.26),
             0 18px 45px rgba(83,55,22,.14);
@@ -564,10 +575,10 @@ export default function App() {
         }
         .frame-inner-shadow {
           width: 100%; height: 100%; background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(255,255,255,.04));
-          border-radius: 12px; padding: 16px; box-shadow: inset 0 0 0 1px rgba(73,48,24,.14);
+          border-radius: 22px; padding: 18px; box-shadow: inset 0 0 0 1px rgba(73,48,24,.14);
         }
         .art-paper {
-          width:100%; height:100%; background:#fff; border-radius: 2px; box-shadow:
+          width:100%; height:100%; background:#fff; border-radius: 4px; box-shadow:
             0 0 0 16px rgba(255,255,255,.96),
             0 0 0 17px rgba(16,16,16,.04),
             inset 0 0 24px rgba(0,0,0,.02);
