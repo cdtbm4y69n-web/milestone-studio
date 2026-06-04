@@ -1431,6 +1431,8 @@ function Styles() {
         position: sticky;
         top: 112px;
         padding: 22px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.86), rgba(244,241,236,0.78));
       }
 
       .preview-topline {
@@ -1458,66 +1460,56 @@ function Styles() {
         position: relative;
         aspect-ratio: 1 / 1;
         min-height: 0;
-        border-radius: 24px;
-        padding: 44px;
-        border: 18px solid #c9965d;
-        background-image:
-          linear-gradient(#ffffff, #ffffff),
-          repeating-linear-gradient(
-            90deg,
-            rgba(108, 70, 32, 0.12) 0px,
-            rgba(108, 70, 32, 0.03) 2px,
-            rgba(255, 255, 255, 0.05) 7px,
-            rgba(108, 70, 32, 0.08) 11px
-          );
-        background-origin: padding-box, border-box;
-        background-clip: padding-box, border-box;
+        border-radius: 0;
+        padding: 56px;
+        border: 10px solid #a98455;
+        background: #ffffff;
         box-shadow:
-          inset 0 0 0 10px rgba(31, 26, 23, 0.055),
-          inset 0 0 0 22px #ffffff,
-          0 26px 65px rgba(31, 26, 23, 0.18);
+          0 0 0 1px rgba(80, 58, 38, 0.28),
+          0 3px 7px rgba(31, 26, 23, 0.22),
+          0 18px 48px rgba(31, 26, 23, 0.20);
         display: flex;
         flex-direction: column;
+        overflow: hidden;
       }
 
       .art-proof::before {
         content: "";
         position: absolute;
-        inset: 18px;
-        border-radius: 10px;
-        border: 1px solid rgba(31, 26, 23, 0.08);
-        box-shadow:
-          inset 0 0 18px rgba(31, 26, 23, 0.07),
-          0 0 0 8px rgba(255, 255, 255, 0.92);
-        pointer-events: none;
+        inset: -58px;
+        z-index: -2;
+        background:
+          radial-gradient(circle at 50% 40%, rgba(255,255,255,0.95), rgba(238,238,236,0.7) 48%, rgba(224,224,222,0.85) 100%);
       }
 
       .art-proof::after {
         content: "";
         position: absolute;
-        inset: -18px;
-        border-radius: 26px;
-        border: 1px solid rgba(117, 76, 38, 0.28);
+        inset: 10px;
+        border: 1px solid rgba(31, 26, 23, 0.12);
+        box-shadow:
+          inset 0 0 0 12px rgba(255,255,255,1),
+          inset 0 0 16px rgba(31, 26, 23, 0.06);
         pointer-events: none;
       }
 
       .palette-classic-black-and-cream {
-        background-color: #ffffff;
+        background: #ffffff;
         border-color: #1f1a17;
       }
 
       .palette-sage-and-sand {
-        background-color: #ffffff;
+        background: #ffffff;
         border-color: #9aa27c;
       }
 
       .palette-soft-blue {
-        background-color: #ffffff;
+        background: #ffffff;
         border-color: #9eb4c5;
       }
 
       .palette-rose-clay {
-        background-color: #ffffff;
+        background: #ffffff;
         border-color: #be8a7e;
       }
 
@@ -1534,9 +1526,9 @@ function Styles() {
 
       .proof-geometry {
         position: relative;
-        width: min(100%, 470px);
-        height: 390px;
-        margin: 2px auto 18px;
+        width: min(78%, 390px);
+        height: 330px;
+        margin: 34px auto 24px;
       }
 
       .spirograph-wrap {
@@ -1552,7 +1544,8 @@ function Styles() {
       }
 
       .layered-spirograph {
-        color: rgba(31, 26, 23, 0.9);
+        color: rgba(31, 26, 23, 0.92);
+        filter: saturate(0.96);
       }
 
       .fibonacci-guides {
@@ -1584,33 +1577,35 @@ function Styles() {
 
       .proof-title {
         text-align: center;
+        margin-top: 4px;
       }
 
       .proof-title h2 {
         margin: 0;
-        font-size: 32px;
+        font-size: 28px;
         line-height: 1;
-        letter-spacing: -0.055em;
+        letter-spacing: -0.045em;
       }
 
       .proof-title p {
-        margin: 8px 0 0;
+        margin: 7px 0 0;
         color: var(--muted);
+        font-size: 13px;
       }
 
       .proof-dates {
         margin-top: auto;
         display: grid;
-        gap: 8px;
+        gap: 5px;
       }
 
       .proof-dates div {
         display: flex;
         justify-content: space-between;
         gap: 14px;
-        padding: 7px 0;
-        border-bottom: 1px solid rgba(31, 26, 23, 0.08);
-        font-size: 13px;
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(31, 26, 23, 0.07);
+        font-size: 11px;
       }
 
       .proof-dates strong { color: var(--ink); }
@@ -1619,9 +1614,9 @@ function Styles() {
 
       .proof-footer {
         text-align: center;
-        margin-top: 16px;
+        margin-top: 13px;
         color: var(--maple-dark);
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.12em;
@@ -1714,18 +1709,18 @@ function Styles() {
 
         .art-proof {
           min-height: 0;
-          padding: 26px;
-          border-width: 14px;
+          padding: 32px;
+          border-width: 8px;
         }
 
         .proof-geometry {
-          width: 100%;
-          height: 280px;
+          width: 82%;
+          height: 250px;
         }
 
         .encoded-date-line {
-          bottom: 0;
-          font-size: 9px;
+          bottom: -8px;
+          font-size: 8px;
         }
       }
     `}</style>
