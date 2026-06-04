@@ -19,3 +19,4 @@ Framework Preset: Vite
 Build Command: npm run build  
 Output Directory: dist  
 Install Command: npm install
+Deployment trigger
