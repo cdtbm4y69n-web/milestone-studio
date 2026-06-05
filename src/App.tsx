@@ -15,7 +15,6 @@ type Milestone = {
   id: string;
   type: MilestoneType;
   date: string;
-  importance: number;
 };
 
 const EVENT_LABELS: Record<MilestoneType, string> = {
@@ -27,6 +26,17 @@ const EVENT_LABELS: Record<MilestoneType, string> = {
   home: "Home Purchase",
   anniversary10: "10th Anniversary",
   anniversary20: "20th Anniversary",
+};
+
+const TRADITION_WEIGHT: Record<MilestoneType, number> = {
+  birth: 9,
+  firstDate: 5,
+  engagement: 7,
+  marriage: 10,
+  child: 10,
+  home: 7,
+  anniversary10: 8,
+  anniversary20: 9,
 };
 
 const MONTH_COLORS = [
@@ -65,26 +75,7 @@ function dateParts(date: string) {
     year: d.getFullYear(),
     month: d.getMonth() + 1,
     day: d.getDate(),
-    dateObj: d,
   };
-}
-
-function getShapeFamily(type: MilestoneType) {
-  switch (type) {
-    case "marriage":
-      return "union";
-    case "engagement":
-      return "rings";
-    case "child":
-      return "nested";
-    case "home":
-      return "home";
-    case "anniversary10":
-    case "anniversary20":
-      return "halo";
-    default:
-      return "bloom";
-  }
 }
 
 function SpiroBloom({
@@ -94,7 +85,6 @@ function SpiroBloom({
   color,
   type,
   date,
-  opacity = 0.74,
 }: {
   cx: number;
   cy: number;
@@ -102,90 +92,68 @@ function SpiroBloom({
   color: string;
   type: MilestoneType;
   date: string;
-  opacity?: number;
 }) {
   const { day } = dateParts(date);
   const seed = sumDigits(date);
-  const family = getShapeFamily(type);
-
-  const petals = Math.max(7, Math.min(28, day + (seed % 9)));
-  const loops = family === "halo" ? 4 : family === "union" ? 5 : 3;
-  const points = 900;
-
-  const paths = Array.from({ length: loops }).map((_, layer) => {
-    const rot = (layer * 360) / loops + seed * 3;
-    const amp = size * (0.34 + layer * 0.035);
-    const wobble = family === "rings" ? 0.42 : family === "home" ? 0.22 : 0.32;
-    let d = "";
-
-    for (let i = 0; i <= points; i++) {
-      const t = (Math.PI * 2 * i) / points;
-      const r =
-        amp *
-        (1 +
-          wobble * Math.sin(petals * t) +
-          0.09 * Math.cos((seed % 11 + 3) * t));
-      const x = cx + r * Math.cos(t + (rot * Math.PI) / 180);
-      const y = cy + r * Math.sin(t + (rot * Math.PI) / 180);
-      d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-    }
-
-    return (
-      <path
-        key={layer}
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={family === "home" ? 0.85 : 0.65}
-        opacity={opacity - layer * 0.08}
-      />
-    );
-  });
+  const petals = Math.max(8, Math.min(32, day + (seed % 8)));
+  const layers =
+    type === "marriage" ? 7 : type === "child" ? 5 : type.includes("anniversary") ? 6 : 4;
 
   return (
     <g>
-      {paths}
+      {Array.from({ length: layers }).map((_, layer) => {
+        let d = "";
+        const points = 900;
+        const amp = size * (0.28 + layer * 0.025);
+        const rotation = layer * 17 + seed * 2;
 
-      {family === "union" && (
+        for (let i = 0; i <= points; i++) {
+          const t = (Math.PI * 2 * i) / points;
+          const r =
+            amp *
+            (1 +
+              0.34 * Math.sin(petals * t) +
+              0.08 * Math.cos((seed % 13) * t));
+          const x = cx + r * Math.cos(t + rotation);
+          const y = cy + r * Math.sin(t + rotation);
+          d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+        }
+
+        return (
+          <path
+            key={layer}
+            d={d}
+            fill="none"
+            stroke={color}
+            strokeWidth={0.65}
+            opacity={0.62 - layer * 0.06}
+          />
+        );
+      })}
+
+      {type === "marriage" && (
         <>
-          <circle
-            cx={cx - size * 0.17}
-            cy={cy}
-            r={size * 0.31}
-            fill="none"
-            stroke={color}
-            strokeWidth="1"
-            opacity="0.45"
-          />
-          <circle
-            cx={cx + size * 0.17}
-            cy={cy}
-            r={size * 0.31}
-            fill="none"
-            stroke={color}
-            strokeWidth="1"
-            opacity="0.45"
-          />
+          <circle cx={cx - size * 0.16} cy={cy} r={size * 0.28} fill="none" stroke={color} opacity="0.38" />
+          <circle cx={cx + size * 0.16} cy={cy} r={size * 0.28} fill="none" stroke={color} opacity="0.38" />
         </>
       )}
 
-      {family === "home" && (
-        <g opacity="0.65">
-          <path
-            d={`M ${cx - size * 0.18} ${cy + size * 0.12}
-                L ${cx - size * 0.18} ${cy - size * 0.08}
-                L ${cx} ${cy - size * 0.24}
-                L ${cx + size * 0.18} ${cy - size * 0.08}
-                L ${cx + size * 0.18} ${cy + size * 0.12}
-                Z`}
-            fill="none"
-            stroke={color}
-            strokeWidth="1.1"
-          />
-        </g>
+      {type === "home" && (
+        <path
+          d={`M ${cx - size * 0.18} ${cy + size * 0.1}
+              L ${cx - size * 0.18} ${cy - size * 0.08}
+              L ${cx} ${cy - size * 0.24}
+              L ${cx + size * 0.18} ${cy - size * 0.08}
+              L ${cx + size * 0.18} ${cy + size * 0.1}
+              Z`}
+          fill="none"
+          stroke={color}
+          strokeWidth="1"
+          opacity="0.55"
+        />
       )}
 
-      <circle cx={cx} cy={cy} r={Math.max(2.5, size * 0.035)} fill={color} />
+      <circle cx={cx} cy={cy} r={Math.max(2.5, size * 0.025)} fill={color} />
     </g>
   );
 }
@@ -193,113 +161,90 @@ function SpiroBloom({
 function generateArtwork(milestones: Milestone[]) {
   const valid = milestones
     .filter((m) => m.date)
-    .sort(
-      (a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (!valid.length) return [];
 
   const marriageIndex = valid.findIndex((m) => m.type === "marriage");
   const centerIndex = marriageIndex >= 0 ? marriageIndex : Math.floor(valid.length / 2);
-  const centerDate = new Date(valid[centerIndex].date).getTime();
+  const centerTime = new Date(valid[centerIndex].date).getTime();
 
   const goldenAngle = 137.507764;
-  const cx = 500;
-  const cy = 500;
+  const centerX = 500;
+  const centerY = 500;
 
-  return valid.map((m, i) => {
+  return valid.map((m, index) => {
     const parts = dateParts(m.date);
-    const monthColor = MONTH_COLORS[parts.month - 1];
-
     const gapYears =
-      Math.abs(new Date(m.date).getTime() - centerDate) /
+      Math.abs(new Date(m.date).getTime() - centerTime) /
       (1000 * 60 * 60 * 24 * 365.25);
 
-    const radiusBase = nearestFib(Math.max(13, Math.round(gapYears * 18 + 34)));
-    const radius = m.type === "marriage" ? 0 : Math.min(radiusBase * 0.72, 360);
+    const fibRadius = nearestFib(Math.round(gapYears * 18 + 34));
+    const radius = m.type === "marriage" ? 0 : Math.min(fibRadius * 0.72, 360);
+    const angle = ((index + 1) * goldenAngle * Math.PI) / 180;
 
-    const angle = ((i + 1) * goldenAngle * Math.PI) / 180;
-    const x = cx + radius * Math.cos(angle);
-    const y = cy + radius * Math.sin(angle);
-
-    const dateSignature = sumDigits(m.date);
-    const size =
-      m.type === "marriage"
-        ? 260
-        : Math.min(210, 72 + nearestFib(dateSignature) * 0.8 + m.importance * 8);
+    const tradition = TRADITION_WEIGHT[m.type];
+    const dateSignature = nearestFib(sumDigits(m.date));
 
     return {
       ...m,
-      x,
-      y,
-      size,
-      color: monthColor,
-      ringRadius: radius,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle),
+      size:
+        m.type === "marriage"
+          ? 245
+          : Math.min(205, 58 + tradition * 9 + dateSignature * 0.45),
+      color: MONTH_COLORS[parts.month - 1],
     };
   });
 }
 
 export default function App() {
   const [milestones, setMilestones] = useState<Milestone[]>([
-    { id: crypto.randomUUID(), type: "birth", date: "", importance: 6 },
+    { id: crypto.randomUUID(), type: "birth", date: "" },
   ]);
 
   const artwork = useMemo(() => generateArtwork(milestones), [milestones]);
 
-  function updateMilestone(id: string, patch: Partial<Milestone>) {
-    setMilestones((items) =>
-      items.map((m) => (m.id === id ? { ...m, ...patch } : m))
-    );
-  }
-
   function addMilestone() {
-    setMilestones((items) => [
-      ...items,
-      {
-        id: crypto.randomUUID(),
-        type: "birth",
-        date: "",
-        importance: 6,
-      },
+    setMilestones((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), type: "birth", date: "" },
     ]);
   }
 
+  function updateMilestone(id: string, patch: Partial<Milestone>) {
+    setMilestones((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    );
+  }
+
   function removeMilestone(id: string) {
-    setMilestones((items) => items.filter((m) => m.id !== id));
+    setMilestones((prev) => prev.filter((m) => m.id !== id));
   }
 
   return (
-    <div className="min-h-screen bg-[#f4efe7] text-[#27231d]">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 py-8 lg:grid-cols-[420px_1fr]">
-        <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Milestone Studio
-          </h1>
-          <p className="mt-2 text-sm text-neutral-600">
-            Enter life events. Each date creates one unique bloom using
-            Fibonacci placement, golden-angle spacing, and Spirograph geometry.
-          </p>
+    <main className="app">
+      <section className="controls">
+        <h1>Add milestone dates</h1>
+        <p>
+          Each date becomes one unique bloom. The system automatically calculates
+          scale, shape, color, and placement using milestone tradition, Fibonacci
+          spacing, and golden-angle positioning.
+        </p>
 
-          <div className="mt-6 space-y-4">
-            {milestones.map((m, index) => (
-              <div
-                key={m.id}
-                className="rounded-2xl border border-neutral-200 bg-[#faf8f3] p-4"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    Milestone {index + 1}
-                  </span>
-                  <button
-                    onClick={() => removeMilestone(m.id)}
-                    className="text-xs text-neutral-500 hover:text-red-600"
-                  >
-                    Remove
-                  </button>
-                </div>
+        <div className="milestone-header">
+          <strong>{milestones.length} milestones included</strong>
+          <button onClick={addMilestone}>Add Milestone</button>
+        </div>
 
-                <label className="text-xs text-neutral-500">Type</label>
+        <div className="milestone-list">
+          {milestones.map((m, index) => (
+            <div className="milestone-row" key={m.id}>
+              <div className="number">{index + 1}</div>
+
+              <label>
+                Milestone
                 <select
                   value={m.type}
                   onChange={(e) =>
@@ -307,7 +252,6 @@ export default function App() {
                       type: e.target.value as MilestoneType,
                     })
                   }
-                  className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm"
                 >
                   {Object.entries(EVENT_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -315,111 +259,89 @@ export default function App() {
                     </option>
                   ))}
                 </select>
+              </label>
 
-                <label className="mt-3 block text-xs text-neutral-500">
-                  Date
-                </label>
+              <label>
+                Date
                 <input
                   type="date"
                   value={m.date}
                   onChange={(e) =>
                     updateMilestone(m.id, { date: e.target.value })
                   }
-                  className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm"
                 />
+              </label>
 
-                <label className="mt-3 block text-xs text-neutral-500">
-                  Importance
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={m.importance}
-                  onChange={(e) =>
-                    updateMilestone(m.id, {
-                      importance: Number(e.target.value),
-                    })
-                  }
-                  className="mt-2 w-full"
-                />
-              </div>
-            ))}
-          </div>
+              <button className="remove" onClick={() => removeMilestone(m.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <button
-            onClick={addMilestone}
-            className="mt-5 w-full rounded-2xl bg-[#1f2933] px-4 py-3 text-sm font-medium text-white hover:bg-[#111827]"
-          >
-            Add Milestone
-          </button>
-        </section>
+      <section className="preview-wrap">
+        <div className="maple-frame">
+          <div className="black-reveal">
+            <div className="paper-border">
+              <svg viewBox="0 0 1000 1000" className="artwork">
+                <rect width="1000" height="1000" fill="#f3eee4" />
 
-        <section className="flex items-center justify-center">
-          <div className="relative aspect-square w-full max-w-[820px] rounded-[28px] bg-[#f8f3e9] p-6 shadow-xl">
-            <div className="absolute inset-0 rounded-[28px] border-[18px] border-[#c79b68]" />
-            <div className="absolute inset-[30px] rounded-[16px] border border-black/20" />
+                {artwork.length === 0 ? (
+                  <text
+                    x="500"
+                    y="500"
+                    textAnchor="middle"
+                    fill="#a89d8c"
+                    fontSize="24"
+                    fontFamily="serif"
+                  >
+                    Add milestone dates to create your artwork
+                  </text>
+                ) : (
+                  <>
+                    <g opacity="0.12">
+                      {[55, 89, 144, 233, 377].map((r) => (
+                        <circle
+                          key={r}
+                          cx="500"
+                          cy="500"
+                          r={r}
+                          fill="none"
+                          stroke="#b69a5f"
+                          strokeWidth="0.7"
+                        />
+                      ))}
+                    </g>
 
-            <svg
-              viewBox="0 0 1000 1000"
-              className="relative z-10 h-full w-full"
-            >
-              <rect width="1000" height="1000" fill="#f7f1e6" />
+                    <path
+                      d={artwork
+                        .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+                        .join(" ")}
+                      fill="none"
+                      stroke="#b9903c"
+                      strokeWidth="1"
+                      opacity="0.22"
+                    />
 
-              {artwork.length === 0 ? (
-                <text
-                  x="500"
-                  y="500"
-                  textAnchor="middle"
-                  fill="#9a8f7d"
-                  fontSize="24"
-                  fontFamily="serif"
-                >
-                  Add milestone dates to create artwork
-                </text>
-              ) : (
-                <>
-                  <g opacity="0.24">
-                    {[55, 89, 144, 233, 377].map((r) => (
-                      <circle
-                        key={r}
-                        cx="500"
-                        cy="500"
-                        r={r}
-                        fill="none"
-                        stroke="#bda46a"
-                        strokeWidth="0.7"
+                    {artwork.map((p) => (
+                      <SpiroBloom
+                        key={p.id}
+                        cx={p.x}
+                        cy={p.y}
+                        size={p.size}
+                        color={p.color}
+                        type={p.type}
+                        date={p.date}
                       />
                     ))}
-                  </g>
-
-                  <path
-                    d={artwork
-                      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-                      .join(" ")}
-                    fill="none"
-                    stroke="#b9903c"
-                    strokeWidth="1.25"
-                    opacity="0.36"
-                  />
-
-                  {artwork.map((p) => (
-                    <SpiroBloom
-                      key={p.id}
-                      cx={p.x}
-                      cy={p.y}
-                      size={p.size}
-                      color={p.color}
-                      type={p.type}
-                      date={p.date}
-                    />
-                  ))}
-                </>
-              )}
-            </svg>
+                  </>
+                )}
+              </svg>
+            </div>
           </div>
-        </section>
-      </div>
-    </div>
+        </div>
+      </section>
+    </main>
   );
 }
