@@ -35,6 +35,8 @@ type ColorSchemeId =
   | "mineral"
   | "warmNeutral";
 
+type MotifRole = "hero" | "secondary" | "supporting" | "accent";
+
 type Milestone = {
   id: string;
   title: string;
@@ -71,6 +73,7 @@ type DesignPreset = {
 type ComposedMilestone = {
   milestone: Milestone;
   design: DesignPreset;
+  role: MotifRole;
   x: number;
   y: number;
   radius: number;
@@ -100,7 +103,6 @@ const CANVAS_W = 1400;
 const CANVAS_H = 1400;
 const TAU = Math.PI * 2;
 const PHI = (1 + Math.sqrt(5)) / 2;
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 const TYPE_OPTIONS: { value: MilestoneType; label: string }[] = [
   { value: "couple_met", label: "Couple Met" },
@@ -990,11 +992,51 @@ function getMilestoneTypeWeight(type: MilestoneType) {
   }
 }
 
+function getMotifRole(index: number, count: number): MotifRole {
+  const centerIndex = Math.floor((count - 1) / 2);
+
+  if (index === centerIndex) return "hero";
+
+  if (
+    index === count - 1 ||
+    index === Math.max(0, Math.floor(count * 0.28))
+  ) {
+    return "secondary";
+  }
+
+  if (
+    index === 0 ||
+    index === Math.max(0, Math.floor(count * 0.72)) ||
+    index === Math.max(0, Math.floor(count * 0.16))
+  ) {
+    return "supporting";
+  }
+
+  return "accent";
+}
+
+function renderAccentMotif(
+  radius: number,
+  palette: string[],
+  rotation: number
+): PathLayer[] {
+  const sw = clamp(radius * 0.035, 0.7, 1.4);
+
+  const outer = circlePoints(radius * 0.9);
+  const inner = circlePoints(radius * 0.42);
+  const dot = circlePoints(radius * 0.12);
+
+  return [
+    layer(outer.map((p) => rotatePoint(p, rotation)), palette[0], sw, 0.34),
+    layer(inner.map((p) => rotatePoint(p, rotation)), palette[2], sw * 0.85, 0.26),
+    layer(dot.map((p) => rotatePoint(p, rotation)), palette[3], sw * 1.2, 0.5),
+  ];
+}
+
 function getDateDrivenScale(
   m: Milestone,
   index: number,
-  dates: number[],
-  baseRadius: number
+  dates: number[]
 ) {
   const count = dates.length;
 
@@ -1052,7 +1094,6 @@ function buildComposition(
   const count = valid.length;
   const baseRadius = getBaseRadiusByCount(count);
   const dates = valid.map((m) => dateMs(m.date));
-
   const centerIndex = Math.floor((count - 1) / 2);
 
   type Slot = {
@@ -1062,65 +1103,63 @@ function buildComposition(
     jitter: number;
   };
 
-  const slotByIndex = new Map<number, Slot>();
+  const slots = new Map<number, Slot>();
 
-  const assignSlot = (idx: number, slot: Slot) => {
-    if (idx >= 0 && idx < count && !slotByIndex.has(idx)) {
-      slotByIndex.set(idx, slot);
-    }
+  const put = (idx: number, slot: Slot) => {
+    if (idx >= 0 && idx < count && !slots.has(idx)) slots.set(idx, slot);
   };
 
-  assignSlot(centerIndex, {
+  put(centerIndex, {
     x: CANVAS_W * 0.56,
     y: CANVAS_H * 0.58,
-    scale: 2.05,
+    scale: 2.18,
     jitter: 10,
   });
 
-  assignSlot(count - 1, {
+  put(count - 1, {
     x: CANVAS_W * 0.87,
     y: CANVAS_H * 0.36,
-    scale: 1.42,
+    scale: 1.32,
     jitter: 14,
   });
 
-  assignSlot(Math.max(0, Math.floor(count * 0.28)), {
+  put(Math.max(0, Math.floor(count * 0.28)), {
     x: CANVAS_W * 0.3,
     y: CANVAS_H * 0.67,
-    scale: 1.18,
+    scale: 1.1,
     jitter: 14,
   });
 
-  assignSlot(Math.max(0, Math.floor(count * 0.72)), {
+  put(Math.max(0, Math.floor(count * 0.72)), {
     x: CANVAS_W * 0.83,
     y: CANVAS_H * 0.86,
-    scale: 0.72,
+    scale: 0.62,
     jitter: 12,
   });
 
-  assignSlot(0, {
+  put(0, {
     x: CANVAS_W * 0.49,
     y: CANVAS_H * 0.05,
-    scale: 0.72,
+    scale: 0.64,
     jitter: 8,
   });
 
-  assignSlot(Math.max(0, Math.floor(count * 0.16)), {
+  put(Math.max(0, Math.floor(count * 0.16)), {
     x: CANVAS_W * 0.69,
     y: CANVAS_H * 0.15,
-    scale: 0.72,
+    scale: 0.62,
     jitter: 12,
   });
 
   const spareSlots: Slot[] = [
-    { x: CANVAS_W * 0.28, y: CANVAS_H * 0.46, scale: 0.78, jitter: 14 },
-    { x: CANVAS_W * 0.18, y: CANVAS_H * 0.9, scale: 0.62, jitter: 10 },
-    { x: CANVAS_W * 0.98, y: CANVAS_H * 0.23, scale: 0.68, jitter: 10 },
-    { x: CANVAS_W * 0.73, y: CANVAS_H * 0.73, scale: 0.84, jitter: 12 },
-    { x: CANVAS_W * 0.12, y: CANVAS_H * 0.36, scale: 0.78, jitter: 10 },
-    { x: CANVAS_W * 0.6, y: CANVAS_H * 0.18, scale: 0.74, jitter: 10 },
-    { x: CANVAS_W * 0.38, y: CANVAS_H * 0.24, scale: 0.7, jitter: 10 },
-    { x: CANVAS_W * 0.92, y: CANVAS_H * 0.58, scale: 0.66, jitter: 10 },
+    { x: CANVAS_W * 0.24, y: CANVAS_H * 0.46, scale: 0.34, jitter: 12 },
+    { x: CANVAS_W * 0.18, y: CANVAS_H * 0.9, scale: 0.28, jitter: 10 },
+    { x: CANVAS_W * 0.98, y: CANVAS_H * 0.23, scale: 0.3, jitter: 10 },
+    { x: CANVAS_W * 0.73, y: CANVAS_H * 0.73, scale: 0.34, jitter: 12 },
+    { x: CANVAS_W * 0.12, y: CANVAS_H * 0.36, scale: 0.32, jitter: 10 },
+    { x: CANVAS_W * 0.6, y: CANVAS_H * 0.18, scale: 0.28, jitter: 10 },
+    { x: CANVAS_W * 0.38, y: CANVAS_H * 0.24, scale: 0.3, jitter: 10 },
+    { x: CANVAS_W * 0.92, y: CANVAS_H * 0.58, scale: 0.28, jitter: 10 },
   ];
 
   let spareCursor = 0;
@@ -1131,35 +1170,55 @@ function buildComposition(
 
     const design = resolveDesign(m);
     const palette = colorScheme.motif;
+    const role = getMotifRole(index, count);
 
     const slot =
-      slotByIndex.get(index) ?? spareSlots[(spareCursor++) % spareSlots.length];
+      slots.get(index) ?? spareSlots[(spareCursor++) % spareSlots.length];
+
+    const roleScale =
+      role === "hero"
+        ? 2.15
+        : role === "secondary"
+        ? 1.25
+        : role === "supporting"
+        ? 0.72
+        : 0.28;
 
     const x = slot.x + (rnd() - 0.5) * slot.jitter * 2;
     const y = slot.y + (rnd() - 0.5) * slot.jitter * 2;
 
     const radius = clamp(
-      baseRadius * getDateDrivenScale(m, index, dates, baseRadius) * slot.scale,
-      38,
-      count <= 5 ? 295 : count <= 12 ? 235 : 190
+      baseRadius * getDateDrivenScale(m, index, dates) * roleScale,
+      role === "accent" ? 16 : 34,
+      role === "hero"
+        ? 285
+        : role === "secondary"
+        ? 190
+        : role === "supporting"
+        ? 105
+        : 34
     );
 
     const rotation = (seed % 180) - 90;
-    const rawLayers = design.render(radius, palette, rotation);
+
+    const rawLayers =
+      role === "accent"
+        ? renderAccentMotif(radius, palette, rotation)
+        : design.render(radius, palette, rotation);
 
     const layers =
-      slot.scale >= 1.28
+      role === "hero"
         ? strengthenLayers(rawLayers, 1.22, 1.1)
-        : slot.scale <= 0.74
-        ? rawLayers.map((l) => ({
-            ...l,
-            opacity: l.opacity * 0.92,
-          }))
-        : rawLayers;
+        : role === "secondary"
+        ? strengthenLayers(rawLayers, 1.08, 1.04)
+        : role === "supporting"
+        ? rawLayers.map((l) => ({ ...l, opacity: l.opacity * 0.9 }))
+        : rawLayers.map((l) => ({ ...l, opacity: l.opacity * 0.78 }));
 
     return {
       milestone: m,
       design,
+      role,
       x,
       y,
       radius,
@@ -1170,26 +1229,28 @@ function buildComposition(
   });
 
   if (count > 1) {
-    for (let pass = 0; pass < 5; pass++) {
+    for (let pass = 0; pass < 4; pass++) {
       for (let i = 0; i < items.length; i++) {
         for (let j = i + 1; j < items.length; j++) {
           const a = items[i];
           const b = items[j];
 
+          if (a.role === "accent" || b.role === "accent") continue;
+
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const dist = Math.max(1, Math.hypot(dx, dy));
-          const desired = a.radius * 0.42 + b.radius * 0.42;
+          const desired = a.radius * 0.36 + b.radius * 0.36;
 
           if (dist < desired) {
             const push = (desired - dist) / 2;
             const nx = dx / dist;
             const ny = dy / dist;
 
-            a.x -= nx * push * 0.14;
-            b.x += nx * push * 0.14;
-            a.y -= ny * push * 0.14;
-            b.y += ny * push * 0.14;
+            a.x -= nx * push * 0.1;
+            b.x += nx * push * 0.1;
+            a.y -= ny * push * 0.1;
+            b.y += ny * push * 0.1;
           }
         }
       }
@@ -1197,13 +1258,13 @@ function buildComposition(
       for (const item of items) {
         item.x = clamp(
           item.x,
-          -item.radius * 0.55,
-          CANVAS_W + item.radius * 0.55
+          -item.radius * 0.58,
+          CANVAS_W + item.radius * 0.58
         );
         item.y = clamp(
           item.y,
-          -item.radius * 0.5,
-          CANVAS_H + item.radius * 0.5
+          -item.radius * 0.52,
+          CANVAS_H + item.radius * 0.52
         );
       }
     }
@@ -1218,7 +1279,7 @@ function buildBackgroundOrbits(
 ) {
   if (composition.length < 3) return [];
 
-  const [a, b, c, d] = colorScheme.orbit;
+  const [a, b, c] = colorScheme.orbit;
 
   return [
     layer(
@@ -1234,8 +1295,8 @@ function buildBackgroundOrbits(
         1.16 * TAU
       ),
       b,
-      2.6,
-      0.42,
+      2.3,
+      0.32,
       false
     ),
     layer(
@@ -1251,8 +1312,8 @@ function buildBackgroundOrbits(
         1.18 * TAU
       ),
       c,
-      2.45,
-      0.48,
+      2.25,
+      0.38,
       false
     ),
     layer(
@@ -1268,25 +1329,8 @@ function buildBackgroundOrbits(
         1.0 * TAU
       ),
       a,
-      2.0,
-      0.22,
-      false
-    ),
-    layer(
-      fibonacciSpiralPoints(
-        CANVAS_W * 0.56,
-        CANVAS_H * 0.56,
-        12,
-        0.052,
-        4.5,
-        -1.36,
-        1.18,
-        0.88,
-        1200
-      ),
-      d,
-      1.2,
-      0.1,
+      1.7,
+      0.14,
       false
     ),
   ];
@@ -1296,57 +1340,35 @@ function buildHeroBackgroundMotifs(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): HeroMotif[] {
-  if (composition.length < 4) return [];
+  if (composition.length < 5) return [];
 
   const p = colorScheme.motif;
   const o = colorScheme.orbit;
 
   const leftHero = DESIGN_LIBRARY.find((d) => d.id === "thinSunflower");
   const rightHero = DESIGN_LIBRARY.find((d) => d.id === "looseHandRing");
-  const topHero = DESIGN_LIBRARY.find((d) => d.id === "airyDaisy");
-  const rightSupport = DESIGN_LIBRARY.find((d) => d.id === "softSquareOrbit");
 
-  if (!leftHero || !rightHero || !topHero || !rightSupport) return [];
+  if (!leftHero || !rightHero) return [];
 
   return [
     {
       id: "hero-left",
-      x: -40,
+      x: -42,
       y: CANVAS_H * 0.74,
       layers: softenLayers(
         leftHero.render(330, [p[1], o[3], p[1], p[1]], -18),
-        0.9,
-        1.18
+        0.78,
+        1.1
       ),
     },
     {
       id: "hero-right",
-      x: CANVAS_W * 0.91,
+      x: CANVAS_W * 0.92,
       y: CANVAS_H * 0.43,
       layers: softenLayers(
-        rightHero.render(365, [o[0], o[0], p[2], p[2]], 18),
-        0.94,
-        1.2
-      ),
-    },
-    {
-      id: "hero-top",
-      x: CANVAS_W * 0.5,
-      y: CANVAS_H * 0.06,
-      layers: softenLayers(
-        topHero.render(120, [p[0], o[0], p[0], p[3]], 6),
-        0.9,
-        1.02
-      ),
-    },
-    {
-      id: "hero-right-support",
-      x: CANVAS_W * 0.98,
-      y: CANVAS_H * 0.25,
-      layers: softenLayers(
-        rightSupport.render(140, [o[0], o[3], o[0], p[3]], 4),
-        0.86,
-        1.05
+        rightHero.render(360, [o[0], o[0], p[2], p[2]], 18),
+        0.82,
+        1.12
       ),
     },
   ];
@@ -1356,34 +1378,24 @@ function buildConnectorLines(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): PathLayer[] {
-  if (composition.length < 3) return [];
+  const major = composition
+    .filter((item) => item.role !== "accent")
+    .sort((a, b) => dateMs(a.milestone.date) - dateMs(b.milestone.date));
 
-  const sorted = [...composition].sort(
-    (a, b) => dateMs(a.milestone.date) - dateMs(b.milestone.date)
-  );
+  if (major.length < 3) return [];
 
-  const hub = sorted[Math.floor(sorted.length / 2)];
+  const hub =
+    major.find((item) => item.role === "hero") ?? major[Math.floor(major.length / 2)];
 
-  const targetIndexes = Array.from(
-    new Set([
-      0,
-      Math.max(1, Math.floor(sorted.length * 0.28)),
-      Math.max(1, Math.floor(sorted.length * 0.72)),
-      sorted.length - 1,
-    ])
-  ).filter((i) => sorted[i] && sorted[i] !== hub);
+  const targets = major.filter((item) => item !== hub).slice(0, 3);
 
-  return targetIndexes.map((idx, i) => {
-    const t = sorted[idx];
-
-    return {
-      d: `M ${fmt(hub.x)} ${fmt(hub.y)} L ${fmt(t.x)} ${fmt(t.y)}`,
-      stroke: colorScheme.connector,
-      strokeWidth: i === 0 ? 1.3 : 1.15,
-      opacity: 0.16,
-      dasharray: "18 24",
-    };
-  });
+  return targets.map((target, i) => ({
+    d: `M ${fmt(hub.x)} ${fmt(hub.y)} L ${fmt(target.x)} ${fmt(target.y)}`,
+    stroke: colorScheme.connector,
+    strokeWidth: i === 0 ? 1.1 : 0.95,
+    opacity: 0.1,
+    dasharray: "26 34",
+  }));
 }
 
 const initialDraft: DraftMilestone = {
@@ -1419,7 +1431,7 @@ export default function App() {
   const hasMilestones = motifCount > 0;
   const showConnectorLayer = motifCount >= 3 && showConnectors;
   const showOrbitLayer = motifCount >= 3 && showOrbits;
-  const showHeroLayer = motifCount >= 4 && showOrbits;
+  const showHeroLayer = motifCount >= 5 && showOrbits;
 
   const backgroundOrbits = useMemo(
     () =>
@@ -1429,7 +1441,7 @@ export default function App() {
 
   const heroBackgroundMotifs = useMemo(
     () =>
-      motifCount >= 4
+      motifCount >= 5
         ? buildHeroBackgroundMotifs(composition, colorScheme)
         : [],
     [motifCount, composition, colorScheme]
@@ -1524,6 +1536,24 @@ export default function App() {
         date: "2025-08-10",
         type: "family_vacation",
       },
+      {
+        id: createId(),
+        title: "New Job",
+        date: "2026-03-01",
+        type: "new_job",
+      },
+      {
+        id: createId(),
+        title: "Anniversary",
+        date: "2026-09-16",
+        type: "anniversary",
+      },
+      {
+        id: createId(),
+        title: "Retirement",
+        date: "2040-06-01",
+        type: "retirement",
+      },
     ]);
   }
 
@@ -1593,8 +1623,8 @@ export default function App() {
             }}
           >
             Enter meaningful dates. The artwork automatically translates them
-            into a Fibonacci-based composition with one unique spirograph per
-            milestone.
+            into a Fibonacci-based composition with hero, supporting, and accent
+            milestones.
           </p>
 
           <div style={sectionStyle}>
@@ -1826,13 +1856,13 @@ export default function App() {
                 {artworkTitle}
               </div>
               <div style={{ fontSize: 13, color: "#647268", marginTop: 4 }}>
-                Fibonacci composition • hybrid gallery layout • global color
-                scheme
+                Fibonacci composition • hero/support/accent hierarchy • global
+                color scheme
               </div>
             </div>
 
             <div style={{ color: "#647268", fontSize: 13 }}>
-              {motifCount} motif{motifCount === 1 ? "" : "s"} generated
+              {motifCount} milestone{motifCount === 1 ? "" : "s"} generated
             </div>
           </div>
 
@@ -1921,7 +1951,8 @@ export default function App() {
                     transform={`translate(${item.x} ${item.y})`}
                   >
                     <title>
-                      {item.milestone.title} • {item.milestone.date}
+                      {item.milestone.title} • {item.milestone.date} •{" "}
+                      {item.role}
                     </title>
 
                     {item.layers.map((l, idx) => (
@@ -1942,9 +1973,9 @@ export default function App() {
                     <circle
                       cx={0}
                       cy={0}
-                      r={clamp(item.radius * 0.025, 2.5, 6)}
+                      r={clamp(item.radius * 0.025, 1.8, 5)}
                       fill={colorScheme.dot}
-                      opacity={0.7}
+                      opacity={item.role === "accent" ? 0.42 : 0.68}
                     />
                   </g>
                 ))}
