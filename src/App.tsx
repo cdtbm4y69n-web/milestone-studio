@@ -119,49 +119,49 @@ function chooseFamily(type: MilestoneType, seed: number): SpiroFamily {
 function librarySettings(family: SpiroFamily, seed: number, day: number) {
   const variants = {
     rosette: [
-      { petals: 14 + (day % 7), layers: 5, wobble: 0.28, sx: 1, sy: 1, stroke: 1.05, opacity: 0.66 },
-      { petals: 18 + (seed % 8), layers: 6, wobble: 0.22, sx: 1, sy: 1, stroke: 0.95, opacity: 0.62 },
-      { petals: 10 + (day % 6), layers: 4, wobble: 0.36, sx: 1.08, sy: 0.95, stroke: 1.1, opacity: 0.68 },
+      { petals: 14 + (day % 7), layers: 5, sx: 1, sy: 1, stroke: 1.05, opacity: 0.66 },
+      { petals: 18 + (seed % 8), layers: 6, sx: 1, sy: 1, stroke: 0.95, opacity: 0.62 },
+      { petals: 10 + (day % 6), layers: 4, sx: 1.08, sy: 0.95, stroke: 1.1, opacity: 0.68 },
     ],
     torus: [
-      { petals: 32 + (seed % 12), layers: 8, wobble: 0.1, sx: 1, sy: 1, stroke: 0.85, opacity: 0.58 },
-      { petals: 42 + (day % 10), layers: 9, wobble: 0.08, sx: 1.05, sy: 1.05, stroke: 0.78, opacity: 0.54 },
-      { petals: 26 + (seed % 9), layers: 7, wobble: 0.13, sx: 1.18, sy: 0.9, stroke: 0.9, opacity: 0.56 },
+      { petals: 32 + (seed % 12), layers: 8, sx: 1, sy: 1, stroke: 0.85, opacity: 0.58 },
+      { petals: 42 + (day % 10), layers: 9, sx: 1.05, sy: 1.05, stroke: 0.78, opacity: 0.54 },
+      { petals: 26 + (seed % 9), layers: 7, sx: 1.18, sy: 0.9, stroke: 0.9, opacity: 0.56 },
     ],
     orbit: [
-      { petals: 5 + (seed % 5), layers: 3, wobble: 0.55, sx: 1.65, sy: 0.7, stroke: 1.25, opacity: 0.72 },
-      { petals: 7 + (day % 4), layers: 4, wobble: 0.45, sx: 1.35, sy: 0.88, stroke: 1.15, opacity: 0.68 },
-      { petals: 4 + (seed % 6), layers: 3, wobble: 0.6, sx: 1.9, sy: 0.62, stroke: 1.1, opacity: 0.66 },
+      { petals: 5 + (seed % 5), layers: 3, sx: 1.65, sy: 0.7, stroke: 1.25, opacity: 0.72 },
+      { petals: 7 + (day % 4), layers: 4, sx: 1.35, sy: 0.88, stroke: 1.15, opacity: 0.68 },
+      { petals: 4 + (seed % 6), layers: 3, sx: 1.9, sy: 0.62, stroke: 1.1, opacity: 0.66 },
     ],
     doubleOrbit: [
-      { petals: 10 + (seed % 5), layers: 4, wobble: 0.26, sx: 1.28, sy: 0.92, stroke: 1.05, opacity: 0.64 },
-      { petals: 13 + (day % 5), layers: 5, wobble: 0.2, sx: 1.42, sy: 0.86, stroke: 0.95, opacity: 0.58 },
+      { petals: 10 + (seed % 5), layers: 4, sx: 1.28, sy: 0.92, stroke: 1.05, opacity: 0.64 },
+      { petals: 13 + (day % 5), layers: 5, sx: 1.42, sy: 0.86, stroke: 0.95, opacity: 0.58 },
     ],
     star: [
-      { petals: 8 + (day % 6), layers: 3, wobble: 0.72, sx: 1, sy: 1, stroke: 1.25, opacity: 0.74 },
-      { petals: 11 + (seed % 7), layers: 4, wobble: 0.52, sx: 1.08, sy: 1.08, stroke: 1.1, opacity: 0.68 },
-      { petals: 6 + (day % 5), layers: 3, wobble: 0.84, sx: 1.15, sy: 0.95, stroke: 1.2, opacity: 0.72 },
+      { petals: 8 + (day % 6), layers: 3, sx: 1, sy: 1, stroke: 1.25, opacity: 0.74 },
+      { petals: 11 + (seed % 7), layers: 4, sx: 1.08, sy: 1.08, stroke: 1.1, opacity: 0.68 },
+      { petals: 6 + (day % 5), layers: 3, sx: 1.15, sy: 0.95, stroke: 1.2, opacity: 0.72 },
     ],
     halo: [
-      { petals: 24 + (seed % 10), layers: 6, wobble: 0.18, sx: 1, sy: 1, stroke: 0.95, opacity: 0.58 },
-      { petals: 30 + (day % 12), layers: 7, wobble: 0.13, sx: 1.05, sy: 1.05, stroke: 0.86, opacity: 0.54 },
-      { petals: 18 + (seed % 8), layers: 5, wobble: 0.22, sx: 1.2, sy: 0.94, stroke: 0.9, opacity: 0.56 },
+      { petals: 24 + (seed % 10), layers: 6, sx: 1, sy: 1, stroke: 0.95, opacity: 0.58 },
+      { petals: 30 + (day % 12), layers: 7, sx: 1.05, sy: 1.05, stroke: 0.86, opacity: 0.54 },
+      { petals: 18 + (seed % 8), layers: 5, sx: 1.2, sy: 0.94, stroke: 0.9, opacity: 0.56 },
     ],
     spiral: [
-      { petals: 9 + (seed % 8), layers: 5, wobble: 0.34, sx: 1.18, sy: 1.05, stroke: 1, opacity: 0.6 },
-      { petals: 13 + (day % 7), layers: 6, wobble: 0.27, sx: 0.96, sy: 1.2, stroke: 0.95, opacity: 0.56 },
+      { petals: 9 + (seed % 8), layers: 5, sx: 1.18, sy: 1.05, stroke: 1, opacity: 0.6 },
+      { petals: 13 + (day % 7), layers: 6, sx: 0.96, sy: 1.2, stroke: 0.95, opacity: 0.56 },
     ],
     looseBloom: [
-      { petals: 6 + (seed % 7), layers: 3, wobble: 0.65, sx: 1.25, sy: 0.85, stroke: 1.2, opacity: 0.68 },
-      { petals: 9 + (day % 5), layers: 3, wobble: 0.5, sx: 0.9, sy: 1.25, stroke: 1.12, opacity: 0.64 },
+      { petals: 6 + (seed % 7), layers: 3, sx: 1.25, sy: 0.85, stroke: 1.2, opacity: 0.68 },
+      { petals: 9 + (day % 5), layers: 3, sx: 0.9, sy: 1.25, stroke: 1.12, opacity: 0.64 },
     ],
     denseBloom: [
-      { petals: 20 + (day % 9), layers: 7, wobble: 0.2, sx: 1, sy: 1, stroke: 0.86, opacity: 0.58 },
-      { petals: 28 + (seed % 12), layers: 8, wobble: 0.15, sx: 1.05, sy: 1.05, stroke: 0.8, opacity: 0.54 },
+      { petals: 20 + (day % 9), layers: 7, sx: 1, sy: 1, stroke: 0.86, opacity: 0.58 },
+      { petals: 28 + (seed % 12), layers: 8, sx: 1.05, sy: 1.05, stroke: 0.8, opacity: 0.54 },
     ],
     homeMark: [
-      { petals: 7 + (seed % 5), layers: 3, wobble: 0.2, sx: 1.08, sy: 1.08, stroke: 1, opacity: 0.58 },
-      { petals: 10 + (day % 4), layers: 4, wobble: 0.16, sx: 1, sy: 1, stroke: 0.95, opacity: 0.56 },
+      { petals: 7 + (seed % 5), layers: 3, sx: 1.08, sy: 1.08, stroke: 1, opacity: 0.58 },
+      { petals: 10 + (day % 4), layers: 4, sx: 1, sy: 1, stroke: 0.95, opacity: 0.56 },
     ],
   };
 
@@ -174,7 +174,6 @@ function spiroPath(
   cy: number,
   size: number,
   petals: number,
-  wobble: number,
   sx: number,
   sy: number,
   twist: number,
@@ -182,29 +181,61 @@ function spiroPath(
   family: SpiroFamily
 ) {
   let d = "";
-  const points = 1300;
+  const points = 2600;
+
+  const R = size;
+  const r = size / Math.max(2.2, petals / 3.2);
+
+  const offset =
+    family === "torus" || family === "halo"
+      ? size * 0.62
+      : family === "star"
+      ? size * 0.95
+      : family === "orbit"
+      ? size * 1.25
+      : family === "doubleOrbit"
+      ? size * 0.85
+      : family === "spiral"
+      ? size * 0.74
+      : size * 0.78;
+
+  const cycles =
+    family === "torus" || family === "halo"
+      ? 18
+      : family === "star"
+      ? 9
+      : family === "orbit"
+      ? 7
+      : 10;
 
   for (let i = 0; i <= points; i++) {
-    const t = (Math.PI * 2 * i) / points;
+    const t = (Math.PI * 2 * cycles * i) / points;
 
-    let r =
-      size *
-      (1 +
-        wobble * Math.sin(petals * t) +
-        0.07 * Math.cos((seed % 11 + 3) * t));
+    let x = 0;
+    let y = 0;
 
-    if (family === "torus") {
-      r = size * (0.86 + 0.14 * Math.sin(petals * t));
+    if (family === "star" || family === "orbit") {
+      x = (R + r) * Math.cos(t) - offset * Math.cos(((R + r) / r) * t);
+      y = (R + r) * Math.sin(t) - offset * Math.sin(((R + r) / r) * t);
+    } else if (family === "spiral") {
+      const grow = 0.35 + i / points;
+      x =
+        ((R - r) * Math.cos(t) +
+          offset * Math.cos(((R - r) / r) * t)) *
+        grow;
+      y =
+        ((R - r) * Math.sin(t) -
+          offset * Math.sin(((R - r) / r) * t)) *
+        grow;
+    } else {
+      x = (R - r) * Math.cos(t) + offset * Math.cos(((R - r) / r) * t);
+      y = (R - r) * Math.sin(t) - offset * Math.sin(((R - r) / r) * t);
     }
 
-    if (family === "spiral") {
-      r = size * (0.45 + i / points) * (1 + wobble * Math.sin(petals * t));
-    }
+    const finalX = cx + x * sx * 0.42;
+    const finalY = cy + y * sy * 0.42;
 
-    const x = cx + r * Math.cos(t + twist) * sx;
-    const y = cy + r * Math.sin(t + twist) * sy;
-
-    d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    d += i === 0 ? `M ${finalX} ${finalY}` : ` L ${finalX} ${finalY}`;
   }
 
   return d;
@@ -218,13 +249,16 @@ function SpiroMark({ p }: { p: ArtworkPoint }) {
   return (
     <g transform={`rotate(${p.rotation} ${p.x} ${p.y})`}>
       {Array.from({ length: config.layers }).map((_, layer) => {
-        const scale = 0.26 + layer * 0.028;
+        const scale =
+          p.family === "torus" || p.family === "halo"
+            ? 0.34 + layer * 0.018
+            : 0.28 + layer * 0.024;
+
         const path = spiroPath(
           p.x,
           p.y,
           p.size * scale,
           config.petals + layer,
-          config.wobble,
           config.sx,
           config.sy,
           layer * 0.32 + seed * 0.018,
@@ -246,15 +280,47 @@ function SpiroMark({ p }: { p: ArtworkPoint }) {
 
       {(p.family === "torus" || p.family === "halo") && (
         <>
-          <circle cx={p.x} cy={p.y} r={p.size * 0.16} fill="white" stroke={p.color} strokeWidth="1" opacity="0.65" />
-          <circle cx={p.x} cy={p.y} r={p.size * 0.26} fill="none" stroke={p.color} strokeWidth="0.9" opacity="0.32" />
+          <circle
+            cx={p.x}
+            cy={p.y}
+            r={p.size * 0.22}
+            fill="white"
+            stroke={p.color}
+            strokeWidth="1"
+            opacity="0.68"
+          />
+          <circle
+            cx={p.x}
+            cy={p.y}
+            r={p.size * 0.3}
+            fill="none"
+            stroke={p.color}
+            strokeWidth="0.9"
+            opacity="0.32"
+          />
         </>
       )}
 
       {p.family === "doubleOrbit" && (
         <>
-          <circle cx={p.x - p.size * 0.11} cy={p.y} r={p.size * 0.18} fill="none" stroke={p.color} strokeWidth="1.15" opacity="0.5" />
-          <circle cx={p.x + p.size * 0.11} cy={p.y} r={p.size * 0.18} fill="none" stroke={p.color} strokeWidth="1.15" opacity="0.5" />
+          <circle
+            cx={p.x - p.size * 0.11}
+            cy={p.y}
+            r={p.size * 0.18}
+            fill="none"
+            stroke={p.color}
+            strokeWidth="1.15"
+            opacity="0.5"
+          />
+          <circle
+            cx={p.x + p.size * 0.11}
+            cy={p.y}
+            r={p.size * 0.18}
+            fill="none"
+            stroke={p.color}
+            strokeWidth="1.15"
+            opacity="0.5"
+          />
         </>
       )}
 
@@ -273,7 +339,13 @@ function SpiroMark({ p }: { p: ArtworkPoint }) {
         />
       )}
 
-      <circle cx={p.x} cy={p.y} r={Math.max(3, p.size * 0.015)} fill={p.color} opacity="0.9" />
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={Math.max(3, p.size * 0.015)}
+        fill={p.color}
+        opacity="0.9"
+      />
     </g>
   );
 }
@@ -577,14 +649,14 @@ export default function App() {
                         fill="none"
                         stroke="#87b9c7"
                         strokeWidth="1.15"
-                        opacity="0.28"
+                        opacity="0.22"
                       />
                       <path
                         d="M 190 790 C 255 360, 580 205, 790 430"
                         fill="none"
                         stroke="#87b9c7"
                         strokeWidth="0.8"
-                        opacity="0.16"
+                        opacity="0.13"
                       />
 
                       {artwork.map((p) => (
