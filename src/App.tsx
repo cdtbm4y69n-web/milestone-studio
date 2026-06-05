@@ -941,12 +941,12 @@ function resolveDesign(m: Milestone) {
 }
 
 function getBaseRadiusByCount(count: number) {
-  if (count <= 1) return 168;
-  if (count <= 3) return 150;
-  if (count <= 5) return 132;
-  if (count <= 8) return 118;
-  if (count <= 12) return 102;
-  if (count <= 18) return 88;
+  if (count <= 1) return 172;
+  if (count <= 3) return 132;
+  if (count <= 5) return 118;
+  if (count <= 8) return 104;
+  if (count <= 12) return 92;
+  if (count <= 18) return 82;
   return 74;
 }
 
@@ -997,35 +997,22 @@ function getDateDrivenScale(
   baseRadius: number
 ) {
   const count = dates.length;
+
+  if (count === 1) return 1.16;
+
   const current = dates[index];
-
-  if (count === 1) return baseRadius * 1.25;
-
   const span = Math.max(1, dates[count - 1] - dates[0]);
   const avgGap = span / Math.max(1, count - 1);
 
   const before = index === 0 ? avgGap : current - dates[index - 1];
   const after = index === count - 1 ? avgGap : dates[index + 1] - current;
 
-  const isolation = clamp((before + after) / (2 * avgGap), 0.72, 1.55);
+  const isolation = clamp((before + after) / (2 * avgGap), 0.82, 1.24);
   const typeWeight = getMilestoneTypeWeight(m.type);
   const dateSeed = hashString(m.date);
-  const dateTexture = 0.9 + ((dateSeed % 100) / 100) * 0.18;
+  const dateTexture = 0.94 + ((dateSeed % 100) / 100) * 0.12;
 
-  let heroScale = 0.88;
-
-  if (count <= 5) {
-    if (index === Math.floor(count / 2)) heroScale = 1.65;
-    else if (index === 0 || index === count - 1) heroScale = 1.28;
-    else heroScale = 0.92;
-  } else {
-    if (index === Math.floor(count / 2)) heroScale = 1.5;
-    else if (index % Math.max(3, Math.round(count / 4)) === 0)
-      heroScale = 1.24;
-    else heroScale = 0.84;
-  }
-
-  return baseRadius * isolation * typeWeight * dateTexture * heroScale;
+  return isolation * typeWeight * dateTexture;
 }
 
 function softenLayers(
@@ -1036,6 +1023,18 @@ function softenLayers(
   return layers.map((l) => ({
     ...l,
     opacity: Math.min(0.44, l.opacity * opacityFactor),
+    strokeWidth: l.strokeWidth * strokeFactor,
+  }));
+}
+
+function strengthenLayers(
+  layers: PathLayer[],
+  opacityFactor = 1.18,
+  strokeFactor = 1.08
+) {
+  return layers.map((l) => ({
+    ...l,
+    opacity: Math.min(0.76, l.opacity * opacityFactor),
     strokeWidth: l.strokeWidth * strokeFactor,
   }));
 }
@@ -1054,19 +1053,77 @@ function buildComposition(
   const baseRadius = getBaseRadiusByCount(count);
   const dates = valid.map((m) => dateMs(m.date));
 
-  const centerX = CANVAS_W * 0.53;
-  const centerY = CANVAS_H * 0.5;
+  const centerIndex = Math.floor((count - 1) / 2);
 
-  const maxSpiralRadius =
-    count <= 1
-      ? 0
-      : count <= 3
-      ? 650
-      : count <= 6
-      ? 720
-      : count <= 10
-      ? 760
-      : 820;
+  type Slot = {
+    x: number;
+    y: number;
+    scale: number;
+    jitter: number;
+  };
+
+  const slotByIndex = new Map<number, Slot>();
+
+  const assignSlot = (idx: number, slot: Slot) => {
+    if (idx >= 0 && idx < count && !slotByIndex.has(idx)) {
+      slotByIndex.set(idx, slot);
+    }
+  };
+
+  assignSlot(centerIndex, {
+    x: CANVAS_W * 0.56,
+    y: CANVAS_H * 0.58,
+    scale: 2.05,
+    jitter: 10,
+  });
+
+  assignSlot(count - 1, {
+    x: CANVAS_W * 0.87,
+    y: CANVAS_H * 0.36,
+    scale: 1.42,
+    jitter: 14,
+  });
+
+  assignSlot(Math.max(0, Math.floor(count * 0.28)), {
+    x: CANVAS_W * 0.3,
+    y: CANVAS_H * 0.67,
+    scale: 1.18,
+    jitter: 14,
+  });
+
+  assignSlot(Math.max(0, Math.floor(count * 0.72)), {
+    x: CANVAS_W * 0.83,
+    y: CANVAS_H * 0.86,
+    scale: 0.72,
+    jitter: 12,
+  });
+
+  assignSlot(0, {
+    x: CANVAS_W * 0.49,
+    y: CANVAS_H * 0.05,
+    scale: 0.72,
+    jitter: 8,
+  });
+
+  assignSlot(Math.max(0, Math.floor(count * 0.16)), {
+    x: CANVAS_W * 0.69,
+    y: CANVAS_H * 0.15,
+    scale: 0.72,
+    jitter: 12,
+  });
+
+  const spareSlots: Slot[] = [
+    { x: CANVAS_W * 0.28, y: CANVAS_H * 0.46, scale: 0.78, jitter: 14 },
+    { x: CANVAS_W * 0.18, y: CANVAS_H * 0.9, scale: 0.62, jitter: 10 },
+    { x: CANVAS_W * 0.98, y: CANVAS_H * 0.23, scale: 0.68, jitter: 10 },
+    { x: CANVAS_W * 0.73, y: CANVAS_H * 0.73, scale: 0.84, jitter: 12 },
+    { x: CANVAS_W * 0.12, y: CANVAS_H * 0.36, scale: 0.78, jitter: 10 },
+    { x: CANVAS_W * 0.6, y: CANVAS_H * 0.18, scale: 0.74, jitter: 10 },
+    { x: CANVAS_W * 0.38, y: CANVAS_H * 0.24, scale: 0.7, jitter: 10 },
+    { x: CANVAS_W * 0.92, y: CANVAS_H * 0.58, scale: 0.66, jitter: 10 },
+  ];
+
+  let spareCursor = 0;
 
   const items: ComposedMilestone[] = valid.map((m, index) => {
     const seed = hashString(`${m.id}|${m.date}|${m.type}|${m.title}`);
@@ -1075,47 +1132,30 @@ function buildComposition(
     const design = resolveDesign(m);
     const palette = colorScheme.motif;
 
-    const normalizedDate =
-      count === 1
-        ? 0.5
-        : (dates[index] - dates[0]) /
-          Math.max(1, dates[count - 1] - dates[0]);
+    const slot =
+      slotByIndex.get(index) ?? spareSlots[(spareCursor++) % spareSlots.length];
 
-    const radialProgress =
-      count === 1
-        ? 0
-        : 0.18 +
-          (Math.sqrt(index + 0.85) / Math.sqrt(count + 0.85)) * 0.88;
-
-    const angle =
-      index * GOLDEN_ANGLE -
-      Math.PI * 0.92 +
-      normalizedDate * 1.1 +
-      (rnd() - 0.5) * 0.22;
-
-    const r = radialProgress * maxSpiralRadius;
-
-    const x =
-      count === 1
-        ? CANVAS_W * 0.5
-        : centerX +
-          Math.cos(angle) * r * 1.18 +
-          Math.cos(angle * 2.3 + normalizedDate * 2) * 42;
-
-    const y =
-      count === 1
-        ? CANVAS_H * 0.5
-        : centerY +
-          Math.sin(angle) * r * 0.94 +
-          Math.sin(angle * 1.9 + normalizedDate) * 36;
+    const x = slot.x + (rnd() - 0.5) * slot.jitter * 2;
+    const y = slot.y + (rnd() - 0.5) * slot.jitter * 2;
 
     const radius = clamp(
-      getDateDrivenScale(m, index, dates, baseRadius),
-      42,
-      count <= 1 ? 220 : count <= 5 ? 270 : count <= 10 ? 210 : 170
+      baseRadius * getDateDrivenScale(m, index, dates, baseRadius) * slot.scale,
+      38,
+      count <= 5 ? 295 : count <= 12 ? 235 : 190
     );
 
     const rotation = (seed % 180) - 90;
+    const rawLayers = design.render(radius, palette, rotation);
+
+    const layers =
+      slot.scale >= 1.28
+        ? strengthenLayers(rawLayers, 1.22, 1.1)
+        : slot.scale <= 0.74
+        ? rawLayers.map((l) => ({
+            ...l,
+            opacity: l.opacity * 0.92,
+          }))
+        : rawLayers;
 
     return {
       milestone: m,
@@ -1125,12 +1165,12 @@ function buildComposition(
       radius,
       rotation,
       palette,
-      layers: design.render(radius, palette, rotation),
+      layers,
     };
   });
 
   if (count > 1) {
-    for (let pass = 0; pass < 6; pass++) {
+    for (let pass = 0; pass < 5; pass++) {
       for (let i = 0; i < items.length; i++) {
         for (let j = i + 1; j < items.length; j++) {
           const a = items[i];
@@ -1139,17 +1179,17 @@ function buildComposition(
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const dist = Math.max(1, Math.hypot(dx, dy));
-          const desired = a.radius * 0.52 + b.radius * 0.52 + 6;
+          const desired = a.radius * 0.42 + b.radius * 0.42;
 
           if (dist < desired) {
             const push = (desired - dist) / 2;
             const nx = dx / dist;
             const ny = dy / dist;
 
-            a.x -= nx * push * 0.18;
-            b.x += nx * push * 0.18;
-            a.y -= ny * push * 0.18;
-            b.y += ny * push * 0.18;
+            a.x -= nx * push * 0.14;
+            b.x += nx * push * 0.14;
+            a.y -= ny * push * 0.14;
+            b.y += ny * push * 0.14;
           }
         }
       }
@@ -1157,22 +1197,19 @@ function buildComposition(
       for (const item of items) {
         item.x = clamp(
           item.x,
-          -item.radius * 0.48,
-          CANVAS_W + item.radius * 0.48
+          -item.radius * 0.55,
+          CANVAS_W + item.radius * 0.55
         );
         item.y = clamp(
           item.y,
-          -item.radius * 0.42,
-          CANVAS_H + item.radius * 0.42
+          -item.radius * 0.5,
+          CANVAS_H + item.radius * 0.5
         );
       }
     }
   }
 
-  return items.map((item) => ({
-    ...item,
-    layers: item.design.render(item.radius, item.palette, item.rotation),
-  }));
+  return items;
 }
 
 function buildBackgroundOrbits(
@@ -1186,104 +1223,70 @@ function buildBackgroundOrbits(
   return [
     layer(
       orbitSweepPoints(
-        -160,
-        CANVAS_H * 0.3,
-        420,
-        0.08,
-        1.15,
-        0.92,
+        -190,
+        CANVAS_H * 0.34,
+        470,
+        0.04,
+        1.18,
+        0.94,
         1000,
-        -0.16 * TAU,
-        1.14 * TAU
+        -0.18 * TAU,
+        1.16 * TAU
       ),
       b,
-      2.2,
-      0.54,
+      2.6,
+      0.42,
       false
     ),
     layer(
       orbitSweepPoints(
-        CANVAS_W * 1.08,
-        CANVAS_H * 0.38,
-        520,
-        2.72,
+        CANVAS_W * 1.05,
+        CANVAS_H * 0.43,
+        500,
+        2.62,
         0.72,
-        1.26,
+        1.22,
         1100,
         -0.1 * TAU,
-        1.26 * TAU
+        1.18 * TAU
       ),
       c,
-      2.15,
-      0.52,
+      2.45,
+      0.48,
       false
     ),
     layer(
       orbitSweepPoints(
-        CANVAS_W * 0.48,
-        CANVAS_H * 1.06,
-        500,
-        -1.54,
-        1.18,
-        0.84,
+        CANVAS_W * 0.46,
+        CANVAS_H * 1.08,
+        535,
+        -1.58,
+        1.24,
+        0.82,
         1100,
-        -0.2 * TAU,
+        -0.18 * TAU,
         1.0 * TAU
       ),
       a,
-      1.85,
-      0.24,
+      2.0,
+      0.22,
       false
     ),
     layer(
       fibonacciSpiralPoints(
-        CANVAS_W * 0.54,
-        CANVAS_H * 0.5,
-        10,
-        0.056,
-        4.8,
-        -1.42,
-        1.26,
-        0.92,
-        1250
-      ),
-      a,
-      1.3,
-      0.24,
-      false
-    ),
-    layer(
-      fibonacciSpiralPoints(
-        CANVAS_W * 0.52,
-        CANVAS_H * 0.45,
-        9,
-        0.054,
-        4.2,
-        1.7,
-        1.1,
-        0.9,
-        1150
-      ),
-      c,
-      1.15,
-      0.18,
-      false
-    ),
-    layer(
-      orbitSweepPoints(
-        CANVAS_W * 0.5,
-        CANVAS_H * 0.5,
-        390,
-        0.8,
-        1.36,
-        0.78,
-        980,
-        -0.18 * TAU,
-        1.03 * TAU
+        CANVAS_W * 0.56,
+        CANVAS_H * 0.56,
+        12,
+        0.052,
+        4.5,
+        -1.36,
+        1.18,
+        0.88,
+        1200
       ),
       d,
-      1.1,
-      0.12,
+      1.2,
+      0.1,
       false
     ),
   ];
@@ -1293,46 +1296,57 @@ function buildHeroBackgroundMotifs(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): HeroMotif[] {
-  if (composition.length < 5) return [];
+  if (composition.length < 4) return [];
 
   const p = colorScheme.motif;
   const o = colorScheme.orbit;
 
-  const hero1 = DESIGN_LIBRARY.find((d) => d.id === "guillocheDonut");
-  const hero2 = DESIGN_LIBRARY.find((d) => d.id === "looseHandRing");
-  const hero3 = DESIGN_LIBRARY.find((d) => d.id === "petalWheel");
+  const leftHero = DESIGN_LIBRARY.find((d) => d.id === "thinSunflower");
+  const rightHero = DESIGN_LIBRARY.find((d) => d.id === "looseHandRing");
+  const topHero = DESIGN_LIBRARY.find((d) => d.id === "airyDaisy");
+  const rightSupport = DESIGN_LIBRARY.find((d) => d.id === "softSquareOrbit");
 
-  if (!hero1 || !hero2 || !hero3) return [];
+  if (!leftHero || !rightHero || !topHero || !rightSupport) return [];
 
   return [
     {
       id: "hero-left",
-      x: -80,
+      x: -40,
       y: CANVAS_H * 0.74,
       layers: softenLayers(
-        hero3.render(305, [p[1], p[1], o[3], p[1]], -12),
-        0.68,
-        1.08
+        leftHero.render(330, [p[1], o[3], p[1], p[1]], -18),
+        0.9,
+        1.18
       ),
     },
     {
       id: "hero-right",
-      x: CANVAS_W * 0.9,
-      y: CANVAS_H * 0.38,
+      x: CANVAS_W * 0.91,
+      y: CANVAS_H * 0.43,
       layers: softenLayers(
-        hero2.render(340, [o[0], o[1], p[2], p[3]], 18),
-        0.7,
-        1.08
+        rightHero.render(365, [o[0], o[0], p[2], p[2]], 18),
+        0.94,
+        1.2
       ),
     },
     {
-      id: "hero-center",
-      x: CANVAS_W * 0.56,
-      y: CANVAS_H * 0.58,
+      id: "hero-top",
+      x: CANVAS_W * 0.5,
+      y: CANVAS_H * 0.06,
       layers: softenLayers(
-        hero1.render(230, [p[1], p[1], p[0], p[2]], 10),
-        0.72,
-        1.08
+        topHero.render(120, [p[0], o[0], p[0], p[3]], 6),
+        0.9,
+        1.02
+      ),
+    },
+    {
+      id: "hero-right-support",
+      x: CANVAS_W * 0.98,
+      y: CANVAS_H * 0.25,
+      layers: softenLayers(
+        rightSupport.render(140, [o[0], o[3], o[0], p[3]], 4),
+        0.86,
+        1.05
       ),
     },
   ];
@@ -1348,22 +1362,28 @@ function buildConnectorLines(
     (a, b) => dateMs(a.milestone.date) - dateMs(b.milestone.date)
   );
 
-  const reduced = sorted.filter((_, index) => {
-    if (index === 0 || index === sorted.length - 1) return true;
-    return index % 2 === 0;
-  });
+  const hub = sorted[Math.floor(sorted.length / 2)];
 
-  const pts = reduced.map((item) => ({ x: item.x, y: item.y }));
+  const targetIndexes = Array.from(
+    new Set([
+      0,
+      Math.max(1, Math.floor(sorted.length * 0.28)),
+      Math.max(1, Math.floor(sorted.length * 0.72)),
+      sorted.length - 1,
+    ])
+  ).filter((i) => sorted[i] && sorted[i] !== hub);
 
-  return [
-    {
-      d: pointsToPath(pts, false),
+  return targetIndexes.map((idx, i) => {
+    const t = sorted[idx];
+
+    return {
+      d: `M ${fmt(hub.x)} ${fmt(hub.y)} L ${fmt(t.x)} ${fmt(t.y)}`,
       stroke: colorScheme.connector,
-      strokeWidth: 1.2,
+      strokeWidth: i === 0 ? 1.3 : 1.15,
       opacity: 0.16,
       dasharray: "18 24",
-    },
-  ];
+    };
+  });
 }
 
 const initialDraft: DraftMilestone = {
@@ -1399,7 +1419,7 @@ export default function App() {
   const hasMilestones = motifCount > 0;
   const showConnectorLayer = motifCount >= 3 && showConnectors;
   const showOrbitLayer = motifCount >= 3 && showOrbits;
-  const showHeroLayer = motifCount >= 5 && showOrbits;
+  const showHeroLayer = motifCount >= 4 && showOrbits;
 
   const backgroundOrbits = useMemo(
     () =>
@@ -1409,7 +1429,7 @@ export default function App() {
 
   const heroBackgroundMotifs = useMemo(
     () =>
-      motifCount >= 5
+      motifCount >= 4
         ? buildHeroBackgroundMotifs(composition, colorScheme)
         : [],
     [motifCount, composition, colorScheme]
@@ -1806,7 +1826,7 @@ export default function App() {
                 {artworkTitle}
               </div>
               <div style={{ fontSize: 13, color: "#647268", marginTop: 4 }}>
-                Fibonacci composition • automatic motif selection • global color
+                Fibonacci composition • hybrid gallery layout • global color
                 scheme
               </div>
             </div>
