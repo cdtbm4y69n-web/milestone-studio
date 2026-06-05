@@ -188,7 +188,7 @@ const COLOR_SCHEMES: ColorScheme[] = [
 ];
 
 function getColorScheme(id: ColorSchemeId) {
-  return COLOR_SCHEMES.find((s) => s.id === id) ?? COLOR_SCHEMES[0];
+  return COLOR_SCHEMES.find((scheme) => scheme.id === id) ?? COLOR_SCHEMES[0];
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -232,6 +232,7 @@ function sampleCurve(
 
 function pointsToPath(points: Point[], close = true) {
   if (!points.length) return "";
+
   const [first, ...rest] = points;
 
   return (
@@ -263,7 +264,6 @@ function hypotrochoidPoints(
     (t) => {
       const x = (R - r) * Math.cos(t) + d * Math.cos(((R - r) / r) * t);
       const y = (R - r) * Math.sin(t) - d * Math.sin(((R - r) / r) * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -284,7 +284,6 @@ function epitrochoidPoints(
     (t) => {
       const x = (R + r) * Math.cos(t) - d * Math.cos(((R + r) / r) * t);
       const y = (R + r) * Math.sin(t) - d * Math.sin(((R + r) / r) * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -332,7 +331,6 @@ function lissajousPoints(
     (t) => {
       const x = radius * Math.sin(a * t + delta);
       const y = radius * Math.sin(b * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps
@@ -1056,7 +1054,7 @@ function buildComposition(
   const centerY = CANVAS_H * 0.5;
 
   const maxSpiralRadius =
-    count <= 3 ? 650 : count <= 6 ? 720 : count <= 10 ? 760 : 820;
+    count <= 1 ? 0 : count <= 3 ? 650 : count <= 6 ? 720 : count <= 10 ? 760 : 820;
 
   const items: ComposedMilestone[] = valid.map((m, index) => {
     const seed = hashString(`${m.id}|${m.date}|${m.type}|${m.title}`);
@@ -1073,7 +1071,7 @@ function buildComposition(
 
     const radialProgress =
       count === 1
-        ? 0.16
+        ? 0
         : 0.18 +
           (Math.sqrt(index + 0.85) / Math.sqrt(count + 0.85)) * 0.88;
 
@@ -1086,19 +1084,23 @@ function buildComposition(
     const r = radialProgress * maxSpiralRadius;
 
     const x =
-      centerX +
-      Math.cos(angle) * r * 1.18 +
-      Math.cos(angle * 2.3 + normalizedDate * 2) * 42;
+      count === 1
+        ? CANVAS_W * 0.5
+        : centerX +
+          Math.cos(angle) * r * 1.18 +
+          Math.cos(angle * 2.3 + normalizedDate * 2) * 42;
 
     const y =
-      centerY +
-      Math.sin(angle) * r * 0.94 +
-      Math.sin(angle * 1.9 + normalizedDate) * 36;
+      count === 1
+        ? CANVAS_H * 0.5
+        : centerY +
+          Math.sin(angle) * r * 0.94 +
+          Math.sin(angle * 1.9 + normalizedDate) * 36;
 
     const radius = clamp(
       getDateDrivenScale(m, index, dates, baseRadius),
       54,
-      count <= 5 ? 246 : count <= 10 ? 190 : 156
+      count <= 1 ? 210 : count <= 5 ? 246 : count <= 10 ? 190 : 156
     );
 
     const rotation = (seed % 180) - 90;
@@ -1115,34 +1117,44 @@ function buildComposition(
     };
   });
 
-  for (let pass = 0; pass < 6; pass++) {
-    for (let i = 0; i < items.length; i++) {
-      for (let j = i + 1; j < items.length; j++) {
-        const a = items[i];
-        const b = items[j];
+  if (count > 1) {
+    for (let pass = 0; pass < 6; pass++) {
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const a = items[i];
+          const b = items[j];
 
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.max(1, Math.hypot(dx, dy));
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.max(1, Math.hypot(dx, dy));
 
-        const desired = a.radius * 0.58 + b.radius * 0.58 + 10;
+          const desired = a.radius * 0.58 + b.radius * 0.58 + 10;
 
-        if (dist < desired) {
-          const push = (desired - dist) / 2;
-          const nx = dx / dist;
-          const ny = dy / dist;
+          if (dist < desired) {
+            const push = (desired - dist) / 2;
+            const nx = dx / dist;
+            const ny = dy / dist;
 
-          a.x -= nx * push * 0.22;
-          b.x += nx * push * 0.22;
-          a.y -= ny * push * 0.22;
-          b.y += ny * push * 0.22;
+            a.x -= nx * push * 0.22;
+            b.x += nx * push * 0.22;
+            a.y -= ny * push * 0.22;
+            b.y += ny * push * 0.22;
+          }
         }
       }
-    }
 
-    for (const item of items) {
-      item.x = clamp(item.x, -item.radius * 0.48, CANVAS_W + item.radius * 0.48);
-      item.y = clamp(item.y, -item.radius * 0.42, CANVAS_H + item.radius * 0.42);
+      for (const item of items) {
+        item.x = clamp(
+          item.x,
+          -item.radius * 0.48,
+          CANVAS_W + item.radius * 0.48
+        );
+        item.y = clamp(
+          item.y,
+          -item.radius * 0.42,
+          CANVAS_H + item.radius * 0.42
+        );
+      }
     }
   }
 
@@ -1156,7 +1168,7 @@ function buildBackgroundOrbits(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ) {
-  if (!composition.length) return [];
+  if (composition.length < 3) return [];
 
   const [a, b, c, d] = colorScheme.orbit;
 
@@ -1270,7 +1282,7 @@ function buildHeroBackgroundMotifs(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): HeroMotif[] {
-  if (!composition.length) return [];
+  if (composition.length < 4) return [];
 
   const p = colorScheme.motif;
   const o = colorScheme.orbit;
@@ -1367,24 +1379,30 @@ export default function App() {
     [milestones, colorScheme]
   );
 
-  const hasMilestones = composition.length > 0;
+  const motifCount = composition.length;
+  const hasMilestones = motifCount > 0;
+  const showConnectorLayer = motifCount >= 2 && showConnectors;
+  const showOrbitLayer = motifCount >= 3 && showOrbits;
+  const showHeroLayer = motifCount >= 4 && showOrbits;
 
   const backgroundOrbits = useMemo(
-    () => (hasMilestones ? buildBackgroundOrbits(composition, colorScheme) : []),
-    [hasMilestones, composition, colorScheme]
+    () =>
+      motifCount >= 3 ? buildBackgroundOrbits(composition, colorScheme) : [],
+    [motifCount, composition, colorScheme]
   );
 
   const heroBackgroundMotifs = useMemo(
     () =>
-      hasMilestones
+      motifCount >= 4
         ? buildHeroBackgroundMotifs(composition, colorScheme)
         : [],
-    [hasMilestones, composition, colorScheme]
+    [motifCount, composition, colorScheme]
   );
 
   const connectorLines = useMemo(
-    () => (hasMilestones ? buildConnectorLines(composition, colorScheme) : []),
-    [hasMilestones, composition, colorScheme]
+    () =>
+      motifCount >= 2 ? buildConnectorLines(composition, colorScheme) : [],
+    [motifCount, composition, colorScheme]
   );
 
   function addMilestone() {
@@ -1527,8 +1545,8 @@ export default function App() {
             }}
           >
             Enter meaningful dates. The artwork automatically translates them
-            into a more dramatic Fibonacci-based composition with one unique
-            spirograph per milestone.
+            into a Fibonacci-based composition with one unique spirograph per
+            milestone.
           </p>
 
           <div style={sectionStyle}>
@@ -1760,14 +1778,13 @@ export default function App() {
                 {artworkTitle}
               </div>
               <div style={{ fontSize: 13, color: "#647268", marginTop: 4 }}>
-                Fibonacci composition • automatic motif selection • larger /
-                off-canvas / more premium
+                Fibonacci composition • automatic motif selection • global color
+                scheme
               </div>
             </div>
 
             <div style={{ color: "#647268", fontSize: 13 }}>
-              {composition.length} motif{composition.length === 1 ? "" : "s"}{" "}
-              generated
+              {motifCount} motif{motifCount === 1 ? "" : "s"} generated
             </div>
           </div>
 
@@ -1799,8 +1816,7 @@ export default function App() {
                 fill={colorScheme.background}
               />
 
-              {hasMilestones &&
-                showOrbits &&
+              {showOrbitLayer &&
                 backgroundOrbits.map((l, idx) => (
                   <path
                     key={`orbit-${idx}`}
@@ -1815,8 +1831,7 @@ export default function App() {
                   />
                 ))}
 
-              {hasMilestones &&
-                showOrbits &&
+              {showHeroLayer &&
                 heroBackgroundMotifs.map((hero) => (
                   <g key={hero.id} transform={`translate(${hero.x} ${hero.y})`}>
                     {hero.layers.map((l, idx) => (
@@ -1835,8 +1850,7 @@ export default function App() {
                   </g>
                 ))}
 
-              {hasMilestones &&
-                showConnectors &&
+              {showConnectorLayer &&
                 connectorLines.map((l, idx) => (
                   <path
                     key={`connector-${idx}`}
