@@ -94,6 +94,7 @@ function SpiroBloom({
   const { day } = dateParts(date);
   const seed = sumDigits(date);
   const petals = Math.max(8, Math.min(32, day + (seed % 8)));
+
   const layers =
     type === "marriage"
       ? 7
@@ -202,9 +203,10 @@ function generateArtwork(milestones: Milestone[]) {
       Math.abs(new Date(m.date).getTime() - centerTime) /
       (1000 * 60 * 60 * 24 * 365.25);
 
-    const fibRadius = nearestFib(Math.round(gapYears * 18 + 34));
-    const radius = m.type === "marriage" ? 0 : Math.min(fibRadius * 0.72, 360);
-    const angle = ((index + 1) * goldenAngle * Math.PI) / 180;
+    const fibRadius = nearestFib(Math.round(gapYears * 28 + 55));
+    const radius = m.type === "marriage" ? 0 : Math.min(fibRadius * 1.05, 430);
+
+    const angle = ((index + 1) * goldenAngle * 1.35 * Math.PI) / 180;
 
     const tradition = TRADITION_WEIGHT[m.type];
     const dateSignature = nearestFib(sumDigits(m.date));
@@ -215,8 +217,8 @@ function generateArtwork(milestones: Milestone[]) {
       y: centerY + radius * Math.sin(angle),
       size:
         m.type === "marriage"
-          ? 245
-          : Math.min(205, 58 + tradition * 9 + dateSignature * 0.45),
+          ? 215
+          : Math.min(165, 48 + tradition * 7 + dateSignature * 0.32),
       color: MONTH_COLORS[parts.month - 1],
     };
   });
@@ -492,8 +494,8 @@ export default function App() {
                     </text>
                   ) : (
                     <>
-                      <g opacity="0.12">
-                        {[55, 89, 144, 233, 377].map((r) => (
+                      <g opacity="0.08">
+                        {[55, 89, 144, 233, 377, 430].map((r) => (
                           <circle
                             key={r}
                             cx="500"
@@ -512,8 +514,8 @@ export default function App() {
                           .join(" ")}
                         fill="none"
                         stroke="#b9903c"
-                        strokeWidth="1"
-                        opacity="0.22"
+                        strokeWidth="0.8"
+                        opacity="0.16"
                       />
 
                       {artwork.map((p) => (
