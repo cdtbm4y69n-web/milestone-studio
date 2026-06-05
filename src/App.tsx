@@ -1,15 +1,30 @@
 import React, { useMemo, useRef, useState } from "react";
 
 type MilestoneType =
-  | "birth"
+  | "couple_met"
+  | "first_date"
+  | "engagement"
   | "marriage"
   | "anniversary"
-  | "family"
-  | "home"
-  | "career"
+  | "birth"
+  | "child_born"
+  | "adoption"
+  | "pregnancy"
+  | "pet"
+  | "first_home"
+  | "new_home"
+  | "family_vacation"
   | "travel"
   | "graduation"
+  | "career"
+  | "new_job"
+  | "promotion"
+  | "business"
+  | "retirement"
   | "memorial"
+  | "loss"
+  | "personal_milestone"
+  | "faith"
   | "other";
 
 type ColorSchemeId =
@@ -81,15 +96,36 @@ const PHI = (1 + Math.sqrt(5)) / 2;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 const TYPE_OPTIONS: { value: MilestoneType; label: string }[] = [
-  { value: "birth", label: "Birth" },
-  { value: "marriage", label: "Marriage" },
+  { value: "couple_met", label: "Couple Met" },
+  { value: "first_date", label: "First Date" },
+  { value: "engagement", label: "Engagement" },
+  { value: "marriage", label: "Married" },
   { value: "anniversary", label: "Anniversary" },
-  { value: "family", label: "Family" },
-  { value: "home", label: "Home" },
-  { value: "career", label: "Career" },
-  { value: "travel", label: "Travel" },
+
+  { value: "birth", label: "Birth" },
+  { value: "child_born", label: "Child Born" },
+  { value: "adoption", label: "Adoption" },
+  { value: "pregnancy", label: "Pregnancy / Baby News" },
+  { value: "pet", label: "Pet Joined the Family" },
+
+  { value: "first_home", label: "First Home" },
+  { value: "new_home", label: "New Home / Move" },
+
+  { value: "family_vacation", label: "Family Vacation" },
+  { value: "travel", label: "Travel / Adventure" },
+
   { value: "graduation", label: "Graduation" },
-  { value: "memorial", label: "Memorial" },
+  { value: "career", label: "Career Milestone" },
+  { value: "new_job", label: "New Job" },
+  { value: "promotion", label: "Promotion" },
+  { value: "business", label: "Started a Business" },
+  { value: "retirement", label: "Retirement" },
+
+  { value: "memorial", label: "Memorial / Remembering" },
+  { value: "loss", label: "Loss / Difficult Season" },
+
+  { value: "personal_milestone", label: "Personal Milestone" },
+  { value: "faith", label: "Faith / Spiritual Milestone" },
   { value: "other", label: "Other" },
 ];
 
@@ -170,6 +206,7 @@ function rotatePoint(p: Point, deg: number): Point {
   const r = degToRad(deg);
   const c = Math.cos(r);
   const s = Math.sin(r);
+
   return {
     x: p.x * c - p.y * s,
     y: p.x * s + p.y * c,
@@ -183,16 +220,20 @@ function sampleCurve(
   end = TAU
 ): Point[] {
   const points: Point[] = [];
+
   for (let i = 0; i <= steps; i++) {
     const t = start + ((end - start) * i) / steps;
     points.push(fn(t));
   }
+
   return points;
 }
 
 function pointsToPath(points: Point[], close = true) {
   if (!points.length) return "";
+
   const [first, ...rest] = points;
+
   return (
     `M ${fmt(first.x)} ${fmt(first.y)} ` +
     rest.map((p) => `L ${fmt(p.x)} ${fmt(p.y)}`).join(" ") +
@@ -222,6 +263,7 @@ function hypotrochoidPoints(
     (t) => {
       const x = (R - r) * Math.cos(t) + d * Math.cos(((R - r) / r) * t);
       const y = (R - r) * Math.sin(t) - d * Math.sin(((R - r) / r) * t);
+
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -242,6 +284,7 @@ function epitrochoidPoints(
     (t) => {
       const x = (R + r) * Math.cos(t) - d * Math.cos(((R + r) / r) * t);
       const y = (R + r) * Math.sin(t) - d * Math.sin(((R + r) / r) * t);
+
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -264,6 +307,7 @@ function rosettePoints(
       const rr =
         radius *
         (inner + amp * (0.5 + 0.5 * Math.cos(petalCount * t + phase)));
+
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -288,6 +332,7 @@ function lissajousPoints(
     (t) => {
       const x = radius * Math.sin(a * t + delta);
       const y = radius * Math.sin(b * t);
+
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps
@@ -308,8 +353,10 @@ function superellipseOrbitPoints(
       const rr = radius * (0.76 + wobbleAmp * Math.cos(wobbleFreq * t + phase));
       const c = Math.cos(t);
       const s = Math.sin(t);
+
       const x = rr * Math.sign(c) * Math.pow(Math.abs(c), 2 / exponent);
       const y = rr * Math.sign(s) * Math.pow(Math.abs(s), 2 / exponent);
+
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps
@@ -332,6 +379,7 @@ function irregularOrbitPoints(
         (0.72 +
           ampA * Math.cos(freqA * t) +
           ampB * Math.sin(freqB * t + 0.7));
+
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -351,15 +399,18 @@ function spiralVortexPoints(
   steps = 2600
 ): Point[] {
   const turns = 7;
+
   return sampleCurve(
     (t) => {
       const p = t / (TAU * turns);
+
       const rr =
         radius *
         (0.13 +
           0.74 * p +
           0.13 * Math.cos(petals * t + p * 8.8) +
           0.045 * Math.sin(17 * t));
+
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -381,9 +432,11 @@ function radialThreadDiskPoints(
   rotationDeg = 0
 ): Point[] {
   const pts: Point[] = [];
+
   for (let i = 0; i <= count; i++) {
     const a = ((i * skip) % count) / count;
     const t = a * TAU;
+
     pts.push(
       rotatePoint(
         {
@@ -394,6 +447,7 @@ function radialThreadDiskPoints(
       )
     );
   }
+
   return pts;
 }
 
@@ -415,6 +469,7 @@ function fibonacciSpiralPoints(
     const theta = (maxTheta * i) / steps;
     const r = startRadius * Math.pow(PHI, growth * theta);
     const a = theta + rotation;
+
     points.push({
       x: centerX + Math.cos(a) * r * xScale,
       y: centerY + Math.sin(a) * r * yScale,
@@ -475,9 +530,27 @@ const DESIGN_LIBRARY: DesignPreset[] = [
       const sw = clamp(radius * 0.011, 0.55, 1.35);
       const R = radius * 0.77;
       const r = R / 11;
+
       return [
-        layer(hypotrochoidPoints(R, r, radius * 0.28, 11, rotation, 2600), palette[1], sw, 0.54),
-        layer(hypotrochoidPoints(R * 0.94, r, radius * 0.24, 11, rotation + 7, 2400), palette[0], sw * 0.88, 0.34),
+        layer(
+          hypotrochoidPoints(R, r, radius * 0.28, 11, rotation, 2600),
+          palette[1],
+          sw,
+          0.54
+        ),
+        layer(
+          hypotrochoidPoints(
+            R * 0.94,
+            r,
+            radius * 0.24,
+            11,
+            rotation + 7,
+            2400
+          ),
+          palette[0],
+          sw * 0.88,
+          0.34
+        ),
         layer(circlePoints(radius * 0.32), palette[3], sw * 1.4, 0.48),
       ];
     },
@@ -487,9 +560,20 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Fine Mesh Halo",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.0085, 0.48, 1.15);
+
       return [
-        layer(radialThreadDiskPoints(radius * 0.92, 43, 151, rotation), palette[0], sw, 0.42),
-        layer(radialThreadDiskPoints(radius * 0.82, 37, 137, rotation + 4), palette[2], sw, 0.22),
+        layer(
+          radialThreadDiskPoints(radius * 0.92, 43, 151, rotation),
+          palette[0],
+          sw,
+          0.42
+        ),
+        layer(
+          radialThreadDiskPoints(radius * 0.82, 37, 137, rotation + 4),
+          palette[2],
+          sw,
+          0.22
+        ),
         layer(circlePoints(radius * 0.25), palette[3], sw * 1.5, 0.5),
       ];
     },
@@ -499,9 +583,20 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Airy Daisy",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
+
       return [
-        layer(rosettePoints(radius, 34, 0.88, 0.14, rotation, 2100), palette[0], sw, 0.4),
-        layer(rosettePoints(radius * 0.78, 17, 0.72, 0.22, rotation + 5, 1700), palette[3], sw * 0.82, 0.2),
+        layer(
+          rosettePoints(radius, 34, 0.88, 0.14, rotation, 2100),
+          palette[0],
+          sw,
+          0.4
+        ),
+        layer(
+          rosettePoints(radius * 0.78, 17, 0.72, 0.22, rotation + 5, 1700),
+          palette[3],
+          sw * 0.82,
+          0.2
+        ),
         layer(circlePoints(radius * 0.1), palette[1], sw * 1.25, 0.6),
       ];
     },
@@ -511,9 +606,20 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Petal Wheel",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.45);
+
       return [
-        layer(rosettePoints(radius * 0.96, 26, 0.8, 0.18, rotation, 2100), palette[1], sw, 0.48),
-        layer(rosettePoints(radius * 0.82, 13, 0.66, 0.28, rotation + 9, 1700), palette[0], sw * 0.82, 0.28),
+        layer(
+          rosettePoints(radius * 0.96, 26, 0.8, 0.18, rotation, 2100),
+          palette[1],
+          sw,
+          0.48
+        ),
+        layer(
+          rosettePoints(radius * 0.82, 13, 0.66, 0.28, rotation + 9, 1700),
+          palette[0],
+          sw * 0.82,
+          0.28
+        ),
         layer(circlePoints(radius * 0.14), palette[3], sw * 1.35, 0.55),
       ];
     },
@@ -523,9 +629,34 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Open Flower Ring",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
+
       return [
-        layer(epitrochoidPoints(radius * 0.43, radius * 0.092, radius * 0.48, 9, rotation, 2400), palette[0], sw, 0.32),
-        layer(epitrochoidPoints(radius * 0.37, radius * 0.082, radius * 0.41, 9, rotation + 7, 2200), palette[2], sw * 0.92, 0.24),
+        layer(
+          epitrochoidPoints(
+            radius * 0.43,
+            radius * 0.092,
+            radius * 0.48,
+            9,
+            rotation,
+            2400
+          ),
+          palette[0],
+          sw,
+          0.32
+        ),
+        layer(
+          epitrochoidPoints(
+            radius * 0.37,
+            radius * 0.082,
+            radius * 0.41,
+            9,
+            rotation + 7,
+            2200
+          ),
+          palette[2],
+          sw * 0.92,
+          0.24
+        ),
         layer(circlePoints(radius * 0.24), palette[1], sw * 1.3, 0.46),
       ];
     },
@@ -535,9 +666,28 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Soft Square Orbit",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.45);
+
       return [
-        layer(superellipseOrbitPoints(radius, 4.5, 6, 0.1, rotation, 2000, 0), palette[0], sw, 0.38),
-        layer(superellipseOrbitPoints(radius * 0.87, 4.5, 7, 0.08, rotation + 15, 1900, 1.1), palette[2], sw * 0.88, 0.28),
+        layer(
+          superellipseOrbitPoints(radius, 4.5, 6, 0.1, rotation, 2000, 0),
+          palette[0],
+          sw,
+          0.38
+        ),
+        layer(
+          superellipseOrbitPoints(
+            radius * 0.87,
+            4.5,
+            7,
+            0.08,
+            rotation + 15,
+            1900,
+            1.1
+          ),
+          palette[2],
+          sw * 0.88,
+          0.28
+        ),
         layer(circlePoints(radius * 0.27), palette[1], sw * 1.25, 0.46),
       ];
     },
@@ -547,9 +697,36 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Box Orbit Rosette",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
+
       return [
-        layer(superellipseOrbitPoints(radius * 0.98, 5.8, 8, 0.18, rotation, 2100, 0.2), palette[2], sw, 0.4),
-        layer(superellipseOrbitPoints(radius * 0.78, 5.2, 8, 0.13, rotation + 18, 1900, 0.9), palette[0], sw * 0.86, 0.28),
+        layer(
+          superellipseOrbitPoints(
+            radius * 0.98,
+            5.8,
+            8,
+            0.18,
+            rotation,
+            2100,
+            0.2
+          ),
+          palette[2],
+          sw,
+          0.4
+        ),
+        layer(
+          superellipseOrbitPoints(
+            radius * 0.78,
+            5.2,
+            8,
+            0.13,
+            rotation + 18,
+            1900,
+            0.9
+          ),
+          palette[0],
+          sw * 0.86,
+          0.28
+        ),
         layer(circlePoints(radius * 0.2), palette[3], sw * 1.25, 0.48),
       ];
     },
@@ -559,10 +736,42 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Loose Hand Ring",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.4);
+
       return [
-        layer(irregularOrbitPoints(radius * 0.98, 7, 4, 0.12, 0.08, rotation, 2000), palette[0], sw, 0.3),
-        layer(irregularOrbitPoints(radius * 0.9, 6, 5, 0.1, 0.07, rotation + 11, 1900), palette[2], sw * 0.9, 0.28),
-        layer(irregularOrbitPoints(radius * 0.78, 5, 3, 0.09, 0.06, rotation + 22, 1800), palette[1], sw * 0.82, 0.22),
+        layer(
+          irregularOrbitPoints(radius * 0.98, 7, 4, 0.12, 0.08, rotation, 2000),
+          palette[0],
+          sw,
+          0.3
+        ),
+        layer(
+          irregularOrbitPoints(
+            radius * 0.9,
+            6,
+            5,
+            0.1,
+            0.07,
+            rotation + 11,
+            1900
+          ),
+          palette[2],
+          sw * 0.9,
+          0.28
+        ),
+        layer(
+          irregularOrbitPoints(
+            radius * 0.78,
+            5,
+            3,
+            0.09,
+            0.06,
+            rotation + 22,
+            1800
+          ),
+          palette[1],
+          sw * 0.82,
+          0.22
+        ),
         layer(circlePoints(radius * 0.33), palette[3], sw * 1.15, 0.38),
       ];
     },
@@ -572,9 +781,22 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Spiral Vortex",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.01, 0.52, 1.25);
+
       return [
-        layer(spiralVortexPoints(radius * 0.96, 12, rotation, 2600), palette[2], sw, 0.38, false),
-        layer(spiralVortexPoints(radius * 0.8, 9, rotation + 8, 2300), palette[0], sw * 0.9, 0.26, false),
+        layer(
+          spiralVortexPoints(radius * 0.96, 12, rotation, 2600),
+          palette[2],
+          sw,
+          0.38,
+          false
+        ),
+        layer(
+          spiralVortexPoints(radius * 0.8, 9, rotation + 8, 2300),
+          palette[0],
+          sw * 0.9,
+          0.26,
+          false
+        ),
         layer(circlePoints(radius * 0.2), palette[1], sw * 1.3, 0.42),
       ];
     },
@@ -584,9 +806,34 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Laced Orbit Bloom",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.01, 0.52, 1.25);
+
       return [
-        layer(lissajousPoints(radius * 0.93, 7, 8, Math.PI / 2.7, rotation, 2400), palette[0], sw, 0.32),
-        layer(lissajousPoints(radius * 0.8, 5, 6, Math.PI / 3.1, rotation + 10, 2200), palette[2], sw * 0.9, 0.24),
+        layer(
+          lissajousPoints(
+            radius * 0.93,
+            7,
+            8,
+            Math.PI / 2.7,
+            rotation,
+            2400
+          ),
+          palette[0],
+          sw,
+          0.32
+        ),
+        layer(
+          lissajousPoints(
+            radius * 0.8,
+            5,
+            6,
+            Math.PI / 3.1,
+            rotation + 10,
+            2200
+          ),
+          palette[2],
+          sw * 0.9,
+          0.24
+        ),
         layer(circlePoints(radius * 0.26), palette[1], sw * 1.25, 0.42),
       ];
     },
@@ -596,9 +843,20 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Thin Sunflower",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.0095, 0.5, 1.2);
+
       return [
-        layer(rosettePoints(radius, 44, 0.92, 0.08, rotation, 2400), palette[1], sw, 0.34),
-        layer(rosettePoints(radius * 0.86, 22, 0.78, 0.16, rotation + 3, 1900), palette[0], sw * 0.9, 0.22),
+        layer(
+          rosettePoints(radius, 44, 0.92, 0.08, rotation, 2400),
+          palette[1],
+          sw,
+          0.34
+        ),
+        layer(
+          rosettePoints(radius * 0.86, 22, 0.78, 0.16, rotation + 3, 1900),
+          palette[0],
+          sw * 0.9,
+          0.22
+        ),
         layer(circlePoints(radius * 0.07), palette[3], sw * 1.35, 0.44),
       ];
     },
@@ -608,11 +866,17 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Nested Halo",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
+
       return [
         layer(circlePoints(radius * 0.92), palette[0], sw, 0.1),
         layer(circlePoints(radius * 0.78), palette[1], sw, 0.13),
         layer(circlePoints(radius * 0.64), palette[2], sw, 0.12),
-        layer(rosettePoints(radius * 0.86, 16, 0.56, 0.32, rotation, 1700), palette[0], sw * 0.86, 0.28),
+        layer(
+          rosettePoints(radius * 0.86, 16, 0.56, 0.32, rotation, 1700),
+          palette[0],
+          sw * 0.86,
+          0.28
+        ),
         layer(circlePoints(radius * 0.31), palette[3], sw * 1.25, 0.42),
       ];
     },
@@ -624,8 +888,14 @@ const DESIGN_LIBRARY: DesignPreset[] = [
       const sw = clamp(radius * 0.013, 0.62, 1.45);
       const R = radius * 0.68;
       const r = R / 8;
+
       return [
-        layer(hypotrochoidPoints(R, r, radius * 0.18, 8, rotation, 1900), palette[3], sw, 0.44),
+        layer(
+          hypotrochoidPoints(R, r, radius * 0.18, 8, rotation, 1900),
+          palette[3],
+          sw,
+          0.44
+        ),
         layer(circlePoints(radius * 0.28), palette[1], sw * 1.2, 0.46),
       ];
     },
@@ -634,21 +904,26 @@ const DESIGN_LIBRARY: DesignPreset[] = [
 
 function hashString(str: string) {
   let hash = 2166136261;
+
   for (let i = 0; i < str.length; i++) {
     hash ^= str.charCodeAt(i);
     hash +=
       (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
+
   return Math.abs(hash >>> 0);
 }
 
 function mulberry32(seed: number) {
   let a = seed;
+
   return function () {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;
+
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -696,10 +971,59 @@ function getDateDrivenScale(
 
   const isolation = clamp((before + after) / (2 * avgGap), 0.82, 1.18);
   const edgePresence = index === 0 || index === count - 1 ? 1.06 : 1;
+  const typeWeight = getMilestoneTypeWeight(m.type);
   const dateSeed = hashString(m.date);
   const dateTexture = 0.94 + ((dateSeed % 100) / 100) * 0.12;
 
-  return baseRadius * isolation * edgePresence * dateTexture;
+  return baseRadius * isolation * edgePresence * typeWeight * dateTexture;
+}
+
+function getMilestoneTypeWeight(type: MilestoneType) {
+  switch (type) {
+    case "couple_met":
+    case "first_date":
+    case "engagement":
+    case "marriage":
+      return 1.06;
+
+    case "birth":
+    case "child_born":
+    case "adoption":
+    case "pregnancy":
+      return 1.05;
+
+    case "anniversary":
+      return 1.02;
+
+    case "first_home":
+    case "new_home":
+      return 1.0;
+
+    case "retirement":
+    case "memorial":
+      return 1.03;
+
+    case "pet":
+    case "family_vacation":
+    case "travel":
+      return 0.96;
+
+    case "graduation":
+    case "career":
+    case "new_job":
+    case "promotion":
+    case "business":
+      return 0.98;
+
+    case "loss":
+      return 1.0;
+
+    case "personal_milestone":
+    case "faith":
+    case "other":
+    default:
+      return 0.98;
+  }
 }
 
 function buildComposition(
@@ -730,11 +1054,15 @@ function buildComposition(
     const palette = colorScheme.motif;
 
     const spiralIndex = index + 1.25;
+
     const radialProgress =
       count === 1 ? 0 : Math.sqrt(spiralIndex) / Math.sqrt(count + 1.25);
 
     const normalizedDate =
-      count === 1 ? 0.5 : (dates[index] - dates[0]) / Math.max(1, dates[count - 1] - dates[0]);
+      count === 1
+        ? 0.5
+        : (dates[index] - dates[0]) /
+          Math.max(1, dates[count - 1] - dates[0]);
 
     const angle =
       index * GOLDEN_ANGLE -
@@ -817,42 +1145,102 @@ function buildBackgroundOrbits(
 
   return [
     layer(
-      fibonacciSpiralPoints(centerX - 110, centerY + 20, 7, 0.055, 4.6, -1.1, 1.08, 0.78, 1200),
+      fibonacciSpiralPoints(
+        centerX - 110,
+        centerY + 20,
+        7,
+        0.055,
+        4.6,
+        -1.1,
+        1.08,
+        0.78,
+        1200
+      ),
       a,
       1.2,
       0.18,
       false
     ),
     layer(
-      fibonacciSpiralPoints(centerX + 120, centerY + 20, 8, 0.052, 4.35, 1.8, 1.12, 0.8, 1200),
+      fibonacciSpiralPoints(
+        centerX + 120,
+        centerY + 20,
+        8,
+        0.052,
+        4.35,
+        1.8,
+        1.12,
+        0.8,
+        1200
+      ),
       c,
       1.05,
       0.16,
       false
     ),
     layer(
-      fibonacciSpiralPoints(centerX - 320, centerY - 240, 10, 0.052, 3.6, -2.4, 1.25, 0.92, 1000),
+      fibonacciSpiralPoints(
+        centerX - 320,
+        centerY - 240,
+        10,
+        0.052,
+        3.6,
+        -2.4,
+        1.25,
+        0.92,
+        1000
+      ),
       b,
       1.1,
       0.22,
       false
     ),
     layer(
-      orbitSweepPoints(centerX, centerY, 505, -0.2, 1.22, 0.68, 950, -0.55 * TAU, 0.72 * TAU),
+      orbitSweepPoints(
+        centerX,
+        centerY,
+        505,
+        -0.2,
+        1.22,
+        0.68,
+        950,
+        -0.55 * TAU,
+        0.72 * TAU
+      ),
       a,
       0.9,
       0.13,
       false
     ),
     layer(
-      orbitSweepPoints(centerX + 90, centerY - 90, 405, 0.75, 1.38, 0.72, 950, -0.15 * TAU, 0.98 * TAU),
+      orbitSweepPoints(
+        centerX + 90,
+        centerY - 90,
+        405,
+        0.75,
+        1.38,
+        0.72,
+        950,
+        -0.15 * TAU,
+        0.98 * TAU
+      ),
       c,
       0.9,
       0.1,
       false
     ),
     layer(
-      orbitSweepPoints(centerX - 180, centerY + 120, 350, 1.15, 1.18, 0.74, 850, -0.2 * TAU, 0.85 * TAU),
+      orbitSweepPoints(
+        centerX - 180,
+        centerY + 120,
+        350,
+        1.15,
+        1.18,
+        0.74,
+        850,
+        -0.2 * TAU,
+        0.85 * TAU
+      ),
       d,
       0.8,
       0.08,
@@ -887,11 +1275,13 @@ function buildConnectorLines(
 const initialDraft: DraftMilestone = {
   title: "",
   date: "",
-  type: "birth",
+  type: "couple_met",
 };
 
 export default function App() {
-  const [artworkTitle, setArtworkTitle] = useState("Fibonacci Milestone Artwork");
+  const [artworkTitle, setArtworkTitle] = useState(
+    "Fibonacci Milestone Artwork"
+  );
   const [colorSchemeId, setColorSchemeId] =
     useState<ColorSchemeId>("botanical");
   const [showOrbits, setShowOrbits] = useState(true);
@@ -924,9 +1314,11 @@ export default function App() {
   function addMilestone() {
     if (!draft.date) return;
 
+    const selectedType = TYPE_OPTIONS.find((opt) => opt.value === draft.type);
+
     const newMilestone: Milestone = {
       id: createId(),
-      title: draft.title.trim() || "Milestone",
+      title: draft.title.trim() || selectedType?.label || "Milestone",
       date: draft.date,
       type: draft.type,
     };
@@ -960,13 +1352,48 @@ export default function App() {
 
   function loadDemo() {
     setMilestones([
-      { id: createId(), title: "Leah Born", date: "1979-03-02", type: "birth" },
-      { id: createId(), title: "Thomas Born", date: "1983-07-14", type: "birth" },
-      { id: createId(), title: "Marriage", date: "2006-09-16", type: "marriage" },
-      { id: createId(), title: "Lucas Born", date: "2013-01-09", type: "birth" },
-      { id: createId(), title: "First Home", date: "2018-06-22", type: "home" },
-      { id: createId(), title: "Career Moment", date: "2024-03-01", type: "career" },
-      { id: createId(), title: "Family Trip", date: "2025-08-10", type: "travel" },
+      {
+        id: createId(),
+        title: "Couple Met",
+        date: "2004-04-18",
+        type: "couple_met",
+      },
+      {
+        id: createId(),
+        title: "First Date",
+        date: "2004-05-07",
+        type: "first_date",
+      },
+      {
+        id: createId(),
+        title: "Engagement",
+        date: "2005-11-12",
+        type: "engagement",
+      },
+      {
+        id: createId(),
+        title: "Married",
+        date: "2006-09-16",
+        type: "marriage",
+      },
+      {
+        id: createId(),
+        title: "Lucas Born",
+        date: "2013-01-09",
+        type: "child_born",
+      },
+      {
+        id: createId(),
+        title: "First Home",
+        date: "2018-06-22",
+        type: "first_home",
+      },
+      {
+        id: createId(),
+        title: "Family Vacation",
+        date: "2025-08-10",
+        type: "family_vacation",
+      },
     ]);
   }
 
@@ -1110,26 +1537,6 @@ export default function App() {
           <div style={sectionStyle}>
             <div style={sectionTitleStyle}>Add Milestone</div>
 
-            <label style={labelStyle}>Label</label>
-            <input
-              style={inputStyle}
-              value={draft.title}
-              onChange={(e) =>
-                setDraft((prev) => ({ ...prev, title: e.target.value }))
-              }
-              placeholder="e.g. Marriage, Lucas Born, First Home"
-            />
-
-            <label style={labelStyle}>Date</label>
-            <input
-              type="date"
-              style={inputStyle}
-              value={draft.date}
-              onChange={(e) =>
-                setDraft((prev) => ({ ...prev, date: e.target.value }))
-              }
-            />
-
             <label style={labelStyle}>Milestone Type</label>
             <select
               style={inputStyle}
@@ -1147,6 +1554,26 @@ export default function App() {
                 </option>
               ))}
             </select>
+
+            <label style={labelStyle}>Label</label>
+            <input
+              style={inputStyle}
+              value={draft.title}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, title: e.target.value }))
+              }
+              placeholder="Optional, e.g. Our First Date"
+            />
+
+            <label style={labelStyle}>Date</label>
+            <input
+              type="date"
+              style={inputStyle}
+              value={draft.date}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, date: e.target.value }))
+              }
+            />
           </div>
 
           <div style={sectionStyle}>
@@ -1269,7 +1696,8 @@ export default function App() {
                 {artworkTitle}
               </div>
               <div style={{ fontSize: 13, color: "#647268", marginTop: 4 }}>
-                Fibonacci composition • automatic motif selection • global color scheme
+                Fibonacci composition • automatic motif selection • global color
+                scheme
               </div>
             </div>
 
