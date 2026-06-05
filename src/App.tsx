@@ -1007,18 +1007,22 @@ function getDateDrivenScale(
   const before = index === 0 ? avgGap : current - dates[index - 1];
   const after = index === count - 1 ? avgGap : dates[index + 1] - current;
 
-  const isolation = clamp((before + after) / (2 * avgGap), 0.84, 1.28);
+  const isolation = clamp((before + after) / (2 * avgGap), 0.72, 1.55);
   const typeWeight = getMilestoneTypeWeight(m.type);
   const dateSeed = hashString(m.date);
-  const dateTexture = 0.93 + ((dateSeed % 100) / 100) * 0.14;
+  const dateTexture = 0.9 + ((dateSeed % 100) / 100) * 0.18;
 
-  let heroScale = 1;
+  let heroScale = 0.88;
 
   if (count <= 5) {
-    if (index === Math.floor(count / 2)) heroScale = 1.36;
-    else if (index === 0 || index === count - 1) heroScale = 1.16;
-  } else if (index % Math.max(3, Math.round(count / 4)) === 0) {
-    heroScale = 1.2;
+    if (index === Math.floor(count / 2)) heroScale = 1.65;
+    else if (index === 0 || index === count - 1) heroScale = 1.28;
+    else heroScale = 0.92;
+  } else {
+    if (index === Math.floor(count / 2)) heroScale = 1.5;
+    else if (index % Math.max(3, Math.round(count / 4)) === 0)
+      heroScale = 1.24;
+    else heroScale = 0.84;
   }
 
   return baseRadius * isolation * typeWeight * dateTexture * heroScale;
@@ -1054,7 +1058,15 @@ function buildComposition(
   const centerY = CANVAS_H * 0.5;
 
   const maxSpiralRadius =
-    count <= 1 ? 0 : count <= 3 ? 650 : count <= 6 ? 720 : count <= 10 ? 760 : 820;
+    count <= 1
+      ? 0
+      : count <= 3
+      ? 650
+      : count <= 6
+      ? 720
+      : count <= 10
+      ? 760
+      : 820;
 
   const items: ComposedMilestone[] = valid.map((m, index) => {
     const seed = hashString(`${m.id}|${m.date}|${m.type}|${m.title}`);
@@ -1099,8 +1111,8 @@ function buildComposition(
 
     const radius = clamp(
       getDateDrivenScale(m, index, dates, baseRadius),
-      54,
-      count <= 1 ? 210 : count <= 5 ? 246 : count <= 10 ? 190 : 156
+      42,
+      count <= 1 ? 220 : count <= 5 ? 270 : count <= 10 ? 210 : 170
     );
 
     const rotation = (seed % 180) - 90;
@@ -1127,18 +1139,17 @@ function buildComposition(
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const dist = Math.max(1, Math.hypot(dx, dy));
-
-          const desired = a.radius * 0.58 + b.radius * 0.58 + 10;
+          const desired = a.radius * 0.52 + b.radius * 0.52 + 6;
 
           if (dist < desired) {
             const push = (desired - dist) / 2;
             const nx = dx / dist;
             const ny = dy / dist;
 
-            a.x -= nx * push * 0.22;
-            b.x += nx * push * 0.22;
-            a.y -= ny * push * 0.22;
-            b.y += ny * push * 0.22;
+            a.x -= nx * push * 0.18;
+            b.x += nx * push * 0.18;
+            a.y -= ny * push * 0.18;
+            b.y += ny * push * 0.18;
           }
         }
       }
@@ -1221,7 +1232,7 @@ function buildBackgroundOrbits(
       ),
       a,
       1.85,
-      0.26,
+      0.24,
       false
     ),
     layer(
@@ -1238,7 +1249,7 @@ function buildBackgroundOrbits(
       ),
       a,
       1.3,
-      0.28,
+      0.24,
       false
     ),
     layer(
@@ -1255,7 +1266,7 @@ function buildBackgroundOrbits(
       ),
       c,
       1.15,
-      0.22,
+      0.18,
       false
     ),
     layer(
@@ -1272,7 +1283,7 @@ function buildBackgroundOrbits(
       ),
       d,
       1.1,
-      0.18,
+      0.12,
       false
     ),
   ];
@@ -1282,7 +1293,7 @@ function buildHeroBackgroundMotifs(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): HeroMotif[] {
-  if (composition.length < 4) return [];
+  if (composition.length < 5) return [];
 
   const p = colorScheme.motif;
   const o = colorScheme.orbit;
@@ -1300,8 +1311,8 @@ function buildHeroBackgroundMotifs(
       y: CANVAS_H * 0.74,
       layers: softenLayers(
         hero3.render(305, [p[1], p[1], o[3], p[1]], -12),
-        0.76,
-        1.16
+        0.68,
+        1.08
       ),
     },
     {
@@ -1310,8 +1321,8 @@ function buildHeroBackgroundMotifs(
       y: CANVAS_H * 0.38,
       layers: softenLayers(
         hero2.render(340, [o[0], o[1], p[2], p[3]], 18),
-        0.78,
-        1.15
+        0.7,
+        1.08
       ),
     },
     {
@@ -1320,8 +1331,8 @@ function buildHeroBackgroundMotifs(
       y: CANVAS_H * 0.58,
       layers: softenLayers(
         hero1.render(230, [p[1], p[1], p[0], p[2]], 10),
-        0.82,
-        1.12
+        0.72,
+        1.08
       ),
     },
   ];
@@ -1331,21 +1342,26 @@ function buildConnectorLines(
   composition: ComposedMilestone[],
   colorScheme: ColorScheme
 ): PathLayer[] {
-  if (composition.length < 2) return [];
+  if (composition.length < 3) return [];
 
   const sorted = [...composition].sort(
     (a, b) => dateMs(a.milestone.date) - dateMs(b.milestone.date)
   );
 
-  const pts = sorted.map((item) => ({ x: item.x, y: item.y }));
+  const reduced = sorted.filter((_, index) => {
+    if (index === 0 || index === sorted.length - 1) return true;
+    return index % 2 === 0;
+  });
+
+  const pts = reduced.map((item) => ({ x: item.x, y: item.y }));
 
   return [
     {
       d: pointsToPath(pts, false),
       stroke: colorScheme.connector,
-      strokeWidth: 1.5,
-      opacity: 0.3,
-      dasharray: "10 16",
+      strokeWidth: 1.2,
+      opacity: 0.16,
+      dasharray: "18 24",
     },
   ];
 }
@@ -1381,9 +1397,9 @@ export default function App() {
 
   const motifCount = composition.length;
   const hasMilestones = motifCount > 0;
-  const showConnectorLayer = motifCount >= 2 && showConnectors;
+  const showConnectorLayer = motifCount >= 3 && showConnectors;
   const showOrbitLayer = motifCount >= 3 && showOrbits;
-  const showHeroLayer = motifCount >= 4 && showOrbits;
+  const showHeroLayer = motifCount >= 5 && showOrbits;
 
   const backgroundOrbits = useMemo(
     () =>
@@ -1393,7 +1409,7 @@ export default function App() {
 
   const heroBackgroundMotifs = useMemo(
     () =>
-      motifCount >= 4
+      motifCount >= 5
         ? buildHeroBackgroundMotifs(composition, colorScheme)
         : [],
     [motifCount, composition, colorScheme]
@@ -1401,7 +1417,7 @@ export default function App() {
 
   const connectorLines = useMemo(
     () =>
-      motifCount >= 2 ? buildConnectorLines(composition, colorScheme) : [],
+      motifCount >= 3 ? buildConnectorLines(composition, colorScheme) : [],
     [motifCount, composition, colorScheme]
   );
 
@@ -1475,6 +1491,18 @@ export default function App() {
         title: "Lucas Born",
         date: "2013-01-09",
         type: "child_born",
+      },
+      {
+        id: createId(),
+        title: "First Home",
+        date: "2018-06-22",
+        type: "first_home",
+      },
+      {
+        id: createId(),
+        title: "Family Vacation",
+        date: "2025-08-10",
+        type: "family_vacation",
       },
     ]);
   }
