@@ -16,6 +16,13 @@ type Milestone = {
   date: string;
 };
 
+type ArtworkPoint = Milestone & {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+};
+
 const EVENT_LABELS: Record<MilestoneType, string> = {
   birth: "Birth",
   firstDate: "First Date",
@@ -31,8 +38,8 @@ const TRADITION_WEIGHT: Record<MilestoneType, number> = {
   birth: 9,
   firstDate: 5,
   engagement: 7,
-  marriage: 10,
-  child: 10,
+  marriage: 8,
+  child: 9,
   home: 7,
   anniversary10: 8,
   anniversary20: 9,
@@ -55,6 +62,83 @@ const MONTH_COLORS = [
 
 const FIB = [13, 21, 34, 55, 89, 144, 233, 377, 610];
 
+const STYLE: Record<
+  MilestoneType,
+  {
+    layers: number;
+    wobble: number;
+    stretchX: number;
+    stretchY: number;
+    opacity: number;
+    strokeWidth: number;
+  }
+> = {
+  birth: {
+    layers: 4,
+    wobble: 0.22,
+    stretchX: 1,
+    stretchY: 1,
+    opacity: 0.58,
+    strokeWidth: 0.62,
+  },
+  firstDate: {
+    layers: 3,
+    wobble: 0.42,
+    stretchX: 1.42,
+    stretchY: 0.78,
+    opacity: 0.62,
+    strokeWidth: 0.65,
+  },
+  engagement: {
+    layers: 4,
+    wobble: 0.28,
+    stretchX: 1.16,
+    stretchY: 1.16,
+    opacity: 0.58,
+    strokeWidth: 0.62,
+  },
+  marriage: {
+    layers: 3,
+    wobble: 0.16,
+    stretchX: 1.55,
+    stretchY: 0.82,
+    opacity: 0.52,
+    strokeWidth: 0.7,
+  },
+  child: {
+    layers: 5,
+    wobble: 0.3,
+    stretchX: 0.95,
+    stretchY: 1.1,
+    opacity: 0.58,
+    strokeWidth: 0.6,
+  },
+  home: {
+    layers: 3,
+    wobble: 0.16,
+    stretchX: 1.05,
+    stretchY: 1.05,
+    opacity: 0.6,
+    strokeWidth: 0.62,
+  },
+  anniversary10: {
+    layers: 4,
+    wobble: 0.2,
+    stretchX: 1,
+    stretchY: 1,
+    opacity: 0.55,
+    strokeWidth: 0.58,
+  },
+  anniversary20: {
+    layers: 5,
+    wobble: 0.18,
+    stretchX: 1,
+    stretchY: 1,
+    opacity: 0.55,
+    strokeWidth: 0.56,
+  },
+};
+
 function sumDigits(value: string) {
   return value
     .replace(/\D/g, "")
@@ -76,6 +160,29 @@ function dateParts(date: string) {
   };
 }
 
+function getPetals(type: MilestoneType, day: number, seed: number) {
+  switch (type) {
+    case "birth":
+      return 12 + (day % 9);
+    case "firstDate":
+      return 5 + (seed % 7);
+    case "engagement":
+      return 8 + (day % 6);
+    case "marriage":
+      return 9 + (seed % 5);
+    case "child":
+      return 10 + (day % 8);
+    case "home":
+      return 6 + (seed % 5);
+    case "anniversary10":
+      return 18 + (seed % 6);
+    case "anniversary20":
+      return 24 + (seed % 8);
+    default:
+      return 12;
+  }
+}
+
 function SpiroBloom({
   cx,
   cy,
@@ -93,35 +200,27 @@ function SpiroBloom({
 }) {
   const { day } = dateParts(date);
   const seed = sumDigits(date);
-  const petals = Math.max(8, Math.min(32, day + (seed % 8)));
-
-  const layers =
-    type === "marriage"
-      ? 7
-      : type === "child"
-      ? 5
-      : type.includes("anniversary")
-      ? 6
-      : 4;
+  const style = STYLE[type];
+  const petals = getPetals(type, day, seed);
 
   return (
     <g>
-      {Array.from({ length: layers }).map((_, layer) => {
+      {Array.from({ length: style.layers }).map((_, layer) => {
         let d = "";
-        const points = 900;
-        const amp = size * (0.28 + layer * 0.025);
-        const rotation = layer * 17 + seed * 2;
+        const points = 920;
+        const amp = size * (0.24 + layer * 0.022);
+        const rotation = layer * 21 + seed * 2.3;
 
         for (let i = 0; i <= points; i++) {
           const t = (Math.PI * 2 * i) / points;
           const r =
             amp *
             (1 +
-              0.34 * Math.sin(petals * t) +
-              0.08 * Math.cos((seed % 13) * t));
+              style.wobble * Math.sin(petals * t) +
+              0.07 * Math.cos((seed % 13) * t));
 
-          const x = cx + r * Math.cos(t + rotation);
-          const y = cy + r * Math.sin(t + rotation);
+          const x = cx + r * Math.cos(t + rotation) * style.stretchX;
+          const y = cy + r * Math.sin(t + rotation) * style.stretchY;
 
           d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
         }
@@ -132,29 +231,54 @@ function SpiroBloom({
             d={d}
             fill="none"
             stroke={color}
-            strokeWidth={0.65}
-            opacity={0.62 - layer * 0.06}
+            strokeWidth={style.strokeWidth}
+            opacity={Math.max(0.18, style.opacity - layer * 0.065)}
           />
         );
       })}
 
+      {type === "engagement" && (
+        <>
+          <circle
+            cx={cx - size * 0.11}
+            cy={cy}
+            r={size * 0.2}
+            fill="none"
+            stroke={color}
+            strokeWidth="0.9"
+            opacity="0.44"
+          />
+          <circle
+            cx={cx + size * 0.11}
+            cy={cy}
+            r={size * 0.2}
+            fill="none"
+            stroke={color}
+            strokeWidth="0.9"
+            opacity="0.44"
+          />
+        </>
+      )}
+
       {type === "marriage" && (
         <>
           <circle
-            cx={cx - size * 0.16}
+            cx={cx - size * 0.13}
             cy={cy}
-            r={size * 0.28}
+            r={size * 0.23}
             fill="none"
             stroke={color}
-            opacity="0.38"
+            strokeWidth="0.9"
+            opacity="0.34"
           />
           <circle
-            cx={cx + size * 0.16}
+            cx={cx + size * 0.13}
             cy={cy}
-            r={size * 0.28}
+            r={size * 0.23}
             fill="none"
             stroke={color}
-            opacity="0.38"
+            strokeWidth="0.9"
+            opacity="0.34"
           />
         </>
       )}
@@ -174,12 +298,47 @@ function SpiroBloom({
         />
       )}
 
-      <circle cx={cx} cy={cy} r={Math.max(2.5, size * 0.025)} fill={color} />
+      {type === "anniversary10" && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={size * 0.34}
+          fill="none"
+          stroke={color}
+          strokeWidth="0.8"
+          opacity="0.28"
+        />
+      )}
+
+      {type === "anniversary20" && (
+        <>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={size * 0.38}
+            fill="none"
+            stroke={color}
+            strokeWidth="0.8"
+            opacity="0.3"
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={size * 0.48}
+            fill="none"
+            stroke={color}
+            strokeWidth="0.6"
+            opacity="0.2"
+          />
+        </>
+      )}
+
+      <circle cx={cx} cy={cy} r={Math.max(2.5, size * 0.022)} fill={color} />
     </g>
   );
 }
 
-function generateArtwork(milestones: Milestone[]) {
+function generateArtwork(milestones: Milestone[]): ArtworkPoint[] {
   const valid = milestones
     .filter((m) => m.date)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -204,21 +363,28 @@ function generateArtwork(milestones: Milestone[]) {
       (1000 * 60 * 60 * 24 * 365.25);
 
     const fibRadius = nearestFib(Math.round(gapYears * 28 + 55));
-    const radius = m.type === "marriage" ? 0 : Math.min(fibRadius * 1.05, 430);
+    let radius = Math.min(fibRadius * 1.05, 430);
+
+    if (m.type === "marriage") radius = 0;
+    if (m.type === "birth") radius = Math.max(radius, 285);
+    if (m.type === "firstDate") radius = Math.max(radius, 185);
+    if (m.type === "engagement") radius = Math.max(radius, 150);
 
     const angle = ((index + 1) * goldenAngle * 1.35 * Math.PI) / 180;
 
     const tradition = TRADITION_WEIGHT[m.type];
     const dateSignature = nearestFib(sumDigits(m.date));
 
+    const size = Math.min(
+      165,
+      52 + tradition * 6 + dateSignature * 0.26
+    );
+
     return {
       ...m,
       x: centerX + radius * Math.cos(angle),
       y: centerY + radius * Math.sin(angle),
-      size:
-        m.type === "marriage"
-          ? 215
-          : Math.min(165, 48 + tradition * 7 + dateSignature * 0.32),
+      size,
       color: MONTH_COLORS[parts.month - 1],
     };
   });
@@ -494,7 +660,7 @@ export default function App() {
                     </text>
                   ) : (
                     <>
-                      <g opacity="0.08">
+                      <g opacity="0.06">
                         {[55, 89, 144, 233, 377, 430].map((r) => (
                           <circle
                             key={r}
@@ -514,8 +680,8 @@ export default function App() {
                           .join(" ")}
                         fill="none"
                         stroke="#b9903c"
-                        strokeWidth="0.8"
-                        opacity="0.16"
+                        strokeWidth="0.7"
+                        opacity="0.12"
                       />
 
                       {artwork.map((p) => (
