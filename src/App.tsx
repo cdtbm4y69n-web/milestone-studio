@@ -13,13 +13,19 @@ type MilestoneType =
   | "career"
   | "memorial";
 
-type SpiroFamily =
-  | "torus"
-  | "rosette"
-  | "orbit"
-  | "star"
-  | "halo"
-  | "spiral";
+type DesignId =
+  | "donutMesh"
+  | "wovenRing"
+  | "softRosette"
+  | "longPetal"
+  | "starLoop"
+  | "angularOrbit"
+  | "openOrbit"
+  | "denseCenter"
+  | "thinHalo"
+  | "nestedRing"
+  | "spiralWhorl"
+  | "smallDaisy";
 
 type Milestone = {
   id: string;
@@ -27,16 +33,16 @@ type Milestone = {
   date: string;
 };
 
-type SpiroMarkData = {
-  id: string;
+type ArtworkMark = Milestone & {
   x: number;
   y: number;
   size: number;
   color: string;
   rotation: number;
-  family: SpiroFamily;
+  design: DesignId;
   seed: number;
-  rings: number;
+  holeRatio: number;
+  density: number;
 };
 
 const EVENT_LABELS: Record<MilestoneType, string> = {
@@ -58,27 +64,217 @@ const MONTH_COLORS = [
   "#7b5a8e",
   "#6f8067",
   "#a8b26d",
-  "#e2bd43",
-  "#d18435",
+  "#7fb069",
+  "#6fae8e",
   "#a94f3d",
   "#c98252",
   "#4f8a91",
-  "#b68132",
+  "#7d9448",
   "#8f483b",
-  "#b7a68c",
+  "#8fa28f",
 ];
 
-const COMPOSITION_POINTS = [
-  { x: 365, y: 365 },
-  { x: 570, y: 335 },
-  { x: 665, y: 535 },
-  { x: 470, y: 520 },
-  { x: 365, y: 620 },
-  { x: 560, y: 675 },
-  { x: 725, y: 405 },
-  { x: 285, y: 500 },
-  { x: 700, y: 700 },
-  { x: 430, y: 760 },
+const DESIGN_LIBRARY: Record<
+  DesignId,
+  {
+    label: string;
+    mode: "hypo" | "epi" | "rose" | "whorl";
+    basePetals: number;
+    cycles: number;
+    layers: number;
+    offset: number;
+    sx: number;
+    sy: number;
+    stroke: number;
+    opacity: number;
+    hasHole: boolean;
+  }
+> = {
+  donutMesh: {
+    label: "Dense Donut Mesh",
+    mode: "hypo",
+    basePetals: 42,
+    cycles: 22,
+    layers: 7,
+    offset: 0.62,
+    sx: 1,
+    sy: 1,
+    stroke: 0.82,
+    opacity: 0.58,
+    hasHole: true,
+  },
+  wovenRing: {
+    label: "Woven Ring",
+    mode: "hypo",
+    basePetals: 30,
+    cycles: 18,
+    layers: 5,
+    offset: 0.68,
+    sx: 1.08,
+    sy: 0.96,
+    stroke: 0.9,
+    opacity: 0.6,
+    hasHole: true,
+  },
+  softRosette: {
+    label: "Soft Rosette",
+    mode: "rose",
+    basePetals: 18,
+    cycles: 12,
+    layers: 4,
+    offset: 0.72,
+    sx: 1,
+    sy: 1,
+    stroke: 1.05,
+    opacity: 0.68,
+    hasHole: true,
+  },
+  longPetal: {
+    label: "Long Petal Flower",
+    mode: "rose",
+    basePetals: 22,
+    cycles: 10,
+    layers: 3,
+    offset: 0.95,
+    sx: 1.12,
+    sy: 1.02,
+    stroke: 1.08,
+    opacity: 0.66,
+    hasHole: true,
+  },
+  starLoop: {
+    label: "Star Loop",
+    mode: "epi",
+    basePetals: 7,
+    cycles: 9,
+    layers: 4,
+    offset: 1.04,
+    sx: 1.08,
+    sy: 1.02,
+    stroke: 1.12,
+    opacity: 0.68,
+    hasHole: true,
+  },
+  angularOrbit: {
+    label: "Angular Orbit",
+    mode: "epi",
+    basePetals: 9,
+    cycles: 8,
+    layers: 3,
+    offset: 1.1,
+    sx: 1.22,
+    sy: 0.9,
+    stroke: 1.08,
+    opacity: 0.66,
+    hasHole: true,
+  },
+  openOrbit: {
+    label: "Open Orbit",
+    mode: "epi",
+    basePetals: 5,
+    cycles: 7,
+    layers: 3,
+    offset: 1.32,
+    sx: 1.65,
+    sy: 0.72,
+    stroke: 1.15,
+    opacity: 0.67,
+    hasHole: true,
+  },
+  denseCenter: {
+    label: "Dense Center Bloom",
+    mode: "hypo",
+    basePetals: 56,
+    cycles: 24,
+    layers: 8,
+    offset: 0.72,
+    sx: 1,
+    sy: 1,
+    stroke: 0.72,
+    opacity: 0.55,
+    hasHole: true,
+  },
+  thinHalo: {
+    label: "Thin Halo",
+    mode: "hypo",
+    basePetals: 26,
+    cycles: 16,
+    layers: 3,
+    offset: 0.54,
+    sx: 1.05,
+    sy: 1.05,
+    stroke: 0.86,
+    opacity: 0.54,
+    hasHole: true,
+  },
+  nestedRing: {
+    label: "Nested Ring",
+    mode: "hypo",
+    basePetals: 20,
+    cycles: 14,
+    layers: 5,
+    offset: 0.58,
+    sx: 1.18,
+    sy: 0.98,
+    stroke: 0.92,
+    opacity: 0.58,
+    hasHole: true,
+  },
+  spiralWhorl: {
+    label: "Spiral Whorl",
+    mode: "whorl",
+    basePetals: 12,
+    cycles: 13,
+    layers: 5,
+    offset: 0.82,
+    sx: 1.08,
+    sy: 1.05,
+    stroke: 0.92,
+    opacity: 0.58,
+    hasHole: true,
+  },
+  smallDaisy: {
+    label: "Small Daisy",
+    mode: "rose",
+    basePetals: 12,
+    cycles: 8,
+    layers: 3,
+    offset: 0.78,
+    sx: 1,
+    sy: 1,
+    stroke: 1.02,
+    opacity: 0.64,
+    hasHole: true,
+  },
+};
+
+const TYPE_DESIGNS: Record<MilestoneType, DesignId[]> = {
+  birth: ["softRosette", "longPetal", "donutMesh", "smallDaisy"],
+  firstDate: ["openOrbit", "angularOrbit", "starLoop"],
+  engagement: ["nestedRing", "openOrbit", "wovenRing"],
+  marriage: ["donutMesh", "wovenRing", "nestedRing"],
+  child: ["smallDaisy", "softRosette", "thinHalo", "longPetal"],
+  home: ["spiralWhorl", "angularOrbit", "nestedRing"],
+  anniversary10: ["thinHalo", "wovenRing", "starLoop"],
+  anniversary20: ["donutMesh", "denseCenter", "wovenRing"],
+  graduation: ["starLoop", "angularOrbit", "longPetal"],
+  career: ["angularOrbit", "starLoop", "openOrbit"],
+  memorial: ["thinHalo", "spiralWhorl", "nestedRing"],
+};
+
+const POSITION_LIBRARY = [
+  { x: 320, y: 330 },
+  { x: 505, y: 275 },
+  { x: 690, y: 350 },
+  { x: 440, y: 470 },
+  { x: 610, y: 520 },
+  { x: 300, y: 555 },
+  { x: 725, y: 610 },
+  { x: 500, y: 680 },
+  { x: 380, y: 735 },
+  { x: 650, y: 745 },
+  { x: 225, y: 430 },
+  { x: 765, y: 455 },
 ];
 
 function sumDigits(value: string) {
@@ -90,105 +286,57 @@ function sumDigits(value: string) {
 
 function dateParts(date: string) {
   const d = new Date(`${date}T00:00:00`);
-  return { month: d.getMonth() + 1, day: d.getDate() };
+  return {
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    year: d.getFullYear(),
+  };
 }
 
-function familyFor(type: MilestoneType, seed: number): SpiroFamily[] {
-  switch (type) {
-    case "birth":
-      return ["rosette", "torus", "halo"];
-    case "firstDate":
-      return ["orbit", "rosette", "halo"];
-    case "engagement":
-      return ["orbit", "halo", "torus"];
-    case "marriage":
-      return ["torus", "halo", "orbit"];
-    case "child":
-      return ["rosette", "halo", "orbit"];
-    case "home":
-      return ["spiral", "torus", "star"];
-    case "anniversary10":
-      return ["halo", "torus", "star"];
-    case "anniversary20":
-      return ["torus", "halo", "rosette"];
-    case "graduation":
-      return ["star", "halo", "orbit"];
-    case "career":
-      return ["star", "torus", "orbit"];
-    case "memorial":
-      return ["halo", "spiral", "torus"];
-    default:
-      return ["rosette", "torus", "halo"];
-  }
+function chooseDesign(type: MilestoneType, seed: number): DesignId {
+  const designs = TYPE_DESIGNS[type];
+  return designs[seed % designs.length];
 }
 
-function spiroPath(
-  cx: number,
-  cy: number,
-  size: number,
-  family: SpiroFamily,
-  seed: number,
-  ringIndex: number
-) {
+function spiroPath(mark: ArtworkMark, layer: number) {
+  const design = DESIGN_LIBRARY[mark.design];
+  const points = 2800;
+  const petals = design.basePetals + ((mark.seed + layer) % 9);
+  const R = mark.size * (0.38 + layer * 0.022);
+  const r = R / Math.max(2.2, petals / 3.15);
+  const offset = R * (design.offset + ((mark.seed % 7) - 3) * 0.018);
+  const cycles = design.cycles + (mark.seed % 3);
+
   let d = "";
-  const points = 2400;
-
-  const petals =
-    family === "torus"
-      ? 34 + ((seed + ringIndex) % 16)
-      : family === "halo"
-      ? 24 + ((seed + ringIndex) % 12)
-      : family === "star"
-      ? 6 + ((seed + ringIndex) % 7)
-      : family === "orbit"
-      ? 5 + ((seed + ringIndex) % 8)
-      : family === "spiral"
-      ? 9 + ((seed + ringIndex) % 9)
-      : 12 + ((seed + ringIndex) % 14);
-
-  const R = size;
-  const r = size / Math.max(2.4, petals / 3.2);
-
-  const offset =
-    family === "torus"
-      ? size * 0.66
-      : family === "halo"
-      ? size * 0.58
-      : family === "star"
-      ? size * 1.05
-      : family === "orbit"
-      ? size * 1.28
-      : family === "spiral"
-      ? size * 0.82
-      : size * 0.76;
-
-  const cycles =
-    family === "torus"
-      ? 20
-      : family === "halo"
-      ? 16
-      : family === "star"
-      ? 9
-      : family === "orbit"
-      ? 7
-      : 12;
-
-  const squashX =
-    family === "orbit" ? 1.55 : family === "star" ? 1.1 : family === "spiral" ? 1.15 : 1;
-
-  const squashY =
-    family === "orbit" ? 0.72 : family === "star" ? 1.05 : family === "spiral" ? 0.95 : 1;
 
   for (let i = 0; i <= points; i++) {
     const t = (Math.PI * 2 * cycles * i) / points;
 
-    let x: number;
-    let y: number;
+    let x = 0;
+    let y = 0;
 
-    if (family === "star" || family === "orbit") {
+    if (design.mode === "epi") {
       x = (R + r) * Math.cos(t) - offset * Math.cos(((R + r) / r) * t);
       y = (R + r) * Math.sin(t) - offset * Math.sin(((R + r) / r) * t);
-    } else if (family === "spiral") {
+    }
+
+    if (design.mode === "hypo") {
+      x = (R - r) * Math.cos(t) + offset * Math.cos(((R - r) / r) * t);
+      y = (R - r) * Math.sin(t) - offset * Math.sin(((R - r) / r) * t);
+    }
+
+    if (design.mode === "rose") {
+      const k = petals / 6;
+      const radius =
+        R *
+        (0.72 +
+          0.42 * Math.cos(k * t) +
+          0.08 * Math.sin((mark.seed % 8) * t));
+      x = radius * Math.cos(t);
+      y = radius * Math.sin(t);
+    }
+
+    if (design.mode === "whorl") {
       const grow = 0.28 + i / points;
       x =
         ((R - r) * Math.cos(t) +
@@ -198,13 +346,10 @@ function spiroPath(
         ((R - r) * Math.sin(t) -
           offset * Math.sin(((R - r) / r) * t)) *
         grow;
-    } else {
-      x = (R - r) * Math.cos(t) + offset * Math.cos(((R - r) / r) * t);
-      y = (R - r) * Math.sin(t) - offset * Math.sin(((R - r) / r) * t);
     }
 
-    const finalX = cx + x * squashX * 0.42;
-    const finalY = cy + y * squashY * 0.42;
+    const finalX = mark.x + x * design.sx * 0.48;
+    const finalY = mark.y + y * design.sy * 0.48;
 
     d += i === 0 ? `M ${finalX} ${finalY}` : ` L ${finalX} ${finalY}`;
   }
@@ -212,99 +357,92 @@ function spiroPath(
   return d;
 }
 
-function SpiroMark({ mark }: { mark: SpiroMarkData }) {
+function SpiroDesign({ mark }: { mark: ArtworkMark }) {
+  const design = DESIGN_LIBRARY[mark.design];
+
   return (
     <g transform={`rotate(${mark.rotation} ${mark.x} ${mark.y})`}>
-      {Array.from({ length: mark.rings }).map((_, i) => {
-        const scale =
-          mark.family === "torus" || mark.family === "halo"
-            ? 0.42 + i * 0.035
-            : mark.family === "orbit"
-            ? 0.34 + i * 0.045
-            : 0.36 + i * 0.04;
+      {Array.from({ length: mark.density }).map((_, layer) => (
+        <path
+          key={layer}
+          d={spiroPath(mark, layer)}
+          fill="none"
+          stroke={mark.color}
+          strokeWidth={design.stroke}
+          opacity={Math.max(0.14, design.opacity - layer * 0.055)}
+        />
+      ))}
 
-        return (
-          <path
-            key={i}
-            d={spiroPath(mark.x, mark.y, mark.size * scale, mark.family, mark.seed, i)}
+      {design.hasHole && (
+        <>
+          <circle
+            cx={mark.x}
+            cy={mark.y}
+            r={mark.size * mark.holeRatio}
+            fill="#ffffff"
+            stroke={mark.color}
+            strokeWidth="0.9"
+            opacity="0.9"
+          />
+          <circle
+            cx={mark.x}
+            cy={mark.y}
+            r={mark.size * (mark.holeRatio + 0.05)}
             fill="none"
             stroke={mark.color}
-            strokeWidth={mark.family === "star" || mark.family === "orbit" ? 1.08 : 0.86}
-            opacity={Math.max(0.18, 0.62 - i * 0.055)}
+            strokeWidth="0.7"
+            opacity="0.28"
           />
-        );
-      })}
-
-      {(mark.family === "torus" || mark.family === "halo") && (
-        <circle
-          cx={mark.x}
-          cy={mark.y}
-          r={mark.size * 0.17}
-          fill="white"
-          stroke={mark.color}
-          strokeWidth="0.9"
-          opacity="0.78"
-        />
+        </>
       )}
 
-      <circle cx={mark.x} cy={mark.y} r={Math.max(2.5, mark.size * 0.012)} fill={mark.color} />
+      <circle
+        cx={mark.x}
+        cy={mark.y}
+        r={Math.max(2.4, mark.size * 0.012)}
+        fill={mark.color}
+        opacity="0.9"
+      />
     </g>
   );
 }
 
-function generateCluster(m: Milestone, index: number): SpiroMarkData[] {
-  const { month } = dateParts(m.date);
-  const seed = sumDigits(m.date);
-  const base = COMPOSITION_POINTS[index % COMPOSITION_POINTS.length];
-  const colors = [
-    MONTH_COLORS[month - 1],
-    MONTH_COLORS[(month + 2) % 12],
-    MONTH_COLORS[(month + 7) % 12],
-  ];
+function generateArtwork(milestones: Milestone[]): ArtworkMark[] {
+  const valid = milestones
+    .filter((m) => m.date)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const families = familyFor(m.type, seed);
+  return valid.map((m, index) => {
+    const parts = dateParts(m.date);
+    const seed = sumDigits(m.date);
+    const position = POSITION_LIBRARY[index % POSITION_LIBRARY.length];
+    const design = chooseDesign(m.type, seed);
 
-  const clusterCount =
-    m.type === "birth" || m.type === "marriage" || m.type === "anniversary20"
-      ? 7
-      : m.type === "child" || m.type === "anniversary10"
-      ? 5
-      : 4;
+    const yearDigits = String(parts.year)
+      .split("")
+      .reduce((sum, n) => sum + Number(n), 0);
 
-  const baseSize =
-    m.type === "birth"
-      ? 160
-      : m.type === "marriage"
-      ? 175
-      : m.type === "anniversary20"
-      ? 170
-      : m.type === "child"
-      ? 130
-      : 120;
-
-  return Array.from({ length: clusterCount }).map((_, i) => {
-    const angle = ((i * 137.507 + seed * 11) * Math.PI) / 180;
-    const radius = i === 0 ? 0 : 28 + (i % 3) * 18 + (seed % 8);
+    const size =
+      95 +
+      (parts.day % 19) * 4 +
+      (seed % 11) * 3 +
+      (m.type === "birth" ? 18 : 0) +
+      (m.type === "marriage" ? 20 : 0) +
+      (m.type === "anniversary20" ? 24 : 0);
 
     return {
-      id: `${m.id}-${i}`,
-      x: base.x + Math.cos(angle) * radius,
-      y: base.y + Math.sin(angle) * radius,
-      size: Math.max(70, baseSize - i * 12 + (seed % 18)),
-      color: colors[i % colors.length],
-      rotation: (seed * 9 + i * 31) % 360,
-      family: families[i % families.length],
-      seed: seed + i * 17,
-      rings: i === 0 ? 7 : 3 + (i % 4),
+      ...m,
+      x: position.x + ((seed % 13) - 6) * 2.5,
+      y: position.y + ((seed % 17) - 8) * 2.5,
+      size,
+      color: MONTH_COLORS[parts.month - 1],
+      rotation: (seed * 11 + index * 29) % 360,
+      design,
+      seed,
+      holeRatio: 0.09 + (parts.day % 9) * 0.01,
+      density: Math.min(8, 3 + (yearDigits % 6)),
     };
   });
-}
-
-function generateArtwork(milestones: Milestone[]) {
-  return milestones
-    .filter((m) => m.date)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .flatMap((m, index) => generateCluster(m, index));
 }
 
 export default function App() {
@@ -322,7 +460,9 @@ export default function App() {
   }
 
   function updateMilestone(id: string, patch: Partial<Milestone>) {
-    setMilestones((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    setMilestones((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    );
   }
 
   function removeMilestone(id: string) {
@@ -493,8 +633,9 @@ export default function App() {
         <section className="controls">
           <h1>Add milestone dates</h1>
           <p>
-            Each milestone now creates a cluster of related Spirograph forms,
-            rather than a single flower.
+            Each milestone selects one individual Spirograph design from the
+            library. The date controls its size, density, inner opening,
+            rotation, color, and placement.
           </p>
 
           <div className="milestone-header">
@@ -530,7 +671,9 @@ export default function App() {
                   <input
                     type="date"
                     value={m.date}
-                    onChange={(e) => updateMilestone(m.id, { date: e.target.value })}
+                    onChange={(e) =>
+                      updateMilestone(m.id, { date: e.target.value })
+                    }
                   />
                 </label>
 
@@ -567,10 +710,11 @@ export default function App() {
                         fill="none"
                         stroke="#87b9c7"
                         strokeWidth="1.05"
-                        opacity="0.16"
+                        opacity="0.13"
                       />
+
                       {artwork.map((mark) => (
-                        <SpiroMark key={mark.id} mark={mark} />
+                        <SpiroDesign key={mark.id} mark={mark} />
                       ))}
                     </>
                   )}
