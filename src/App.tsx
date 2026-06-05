@@ -12,23 +12,25 @@ type MilestoneType =
   | "memorial"
   | "other";
 
-type DesignChoice = "auto" | string;
+type ColorSchemeId =
+  | "botanical"
+  | "coastal"
+  | "marigold"
+  | "sageInk"
+  | "mineral"
+  | "warmNeutral";
 
 type Milestone = {
   id: string;
   title: string;
   date: string;
   type: MilestoneType;
-  importance: number;
-  designChoice: DesignChoice;
 };
 
 type DraftMilestone = {
   title: string;
   date: string;
   type: MilestoneType;
-  importance: number;
-  designChoice: DesignChoice;
 };
 
 type Point = { x: number; y: number };
@@ -62,6 +64,16 @@ type ComposedMilestone = {
   layers: PathLayer[];
 };
 
+type ColorScheme = {
+  id: ColorSchemeId;
+  label: string;
+  background: string;
+  motif: string[];
+  orbit: string[];
+  connector: string;
+  dot: string;
+};
+
 const CANVAS_W = 1400;
 const CANVAS_H = 1400;
 const TAU = Math.PI * 2;
@@ -81,31 +93,66 @@ const TYPE_OPTIONS: { value: MilestoneType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const TYPE_PALETTES: Record<MilestoneType, string[]> = {
-  birth: ["#8CCCD1", "#F2B84B", "#5E6F86", "#89B95C"],
-  marriage: ["#A6D8DD", "#EFB15A", "#546176", "#9EBC5C"],
-  anniversary: ["#9ED1D5", "#F0C64F", "#687287", "#7CB36B"],
-  family: ["#91C8C7", "#EFC257", "#536B7F", "#86B66C"],
-  home: ["#B0D9D4", "#E7B86A", "#667486", "#A4BA68"],
-  career: ["#A5C8D2", "#F0AF59", "#5A667B", "#95AF70"],
-  travel: ["#8DD1D6", "#F4C54C", "#4F6178", "#76B87D"],
-  graduation: ["#A0CFD2", "#F2BE55", "#5C687E", "#9AB969"],
-  memorial: ["#B8C8C5", "#D9C57E", "#6D7480", "#A4AE84"],
-  other: ["#9FD1D0", "#F0BE55", "#5C6B80", "#8BB76C"],
-};
+const COLOR_SCHEMES: ColorScheme[] = [
+  {
+    id: "botanical",
+    label: "Botanical Greens",
+    background: "#FCFCFA",
+    motif: ["#8FC7A5", "#B7CB63", "#6A8F80", "#4F6F61"],
+    orbit: ["#9ED1D0", "#B8C98A", "#708B84", "#D8E6D6"],
+    connector: "#7C8E86",
+    dot: "#536F64",
+  },
+  {
+    id: "coastal",
+    label: "Coastal Blue",
+    background: "#FBFCFC",
+    motif: ["#9DCFD5", "#7FA9BB", "#566B83", "#D7B56D"],
+    orbit: ["#A8DCE2", "#D8EDF0", "#5D7288", "#EAC878"],
+    connector: "#8192A3",
+    dot: "#536176",
+  },
+  {
+    id: "marigold",
+    label: "Marigold + Sky",
+    background: "#FFFDF8",
+    motif: ["#F0B35D", "#F3C84D", "#94CED2", "#536176"],
+    orbit: ["#F3B36A", "#A8DDE1", "#667286", "#F7E2A1"],
+    connector: "#9A9688",
+    dot: "#546176",
+  },
+  {
+    id: "sageInk",
+    label: "Sage + Ink",
+    background: "#FCFCFA",
+    motif: ["#A8BFA4", "#7B998A", "#4F5F70", "#CED9C9"],
+    orbit: ["#B9D4C8", "#AABCB0", "#536176", "#DDE6DA"],
+    connector: "#7A8583",
+    dot: "#4F5F70",
+  },
+  {
+    id: "mineral",
+    label: "Mineral Mist",
+    background: "#FBFCFA",
+    motif: ["#B6C9C6", "#8EA7A8", "#C9C08A", "#687080"],
+    orbit: ["#C4DDDA", "#DAD8BD", "#7E8999", "#EFF3EE"],
+    connector: "#919B9B",
+    dot: "#667080",
+  },
+  {
+    id: "warmNeutral",
+    label: "Warm Neutral",
+    background: "#FFFDF8",
+    motif: ["#C9A66B", "#A8B98D", "#7F8C7D", "#D9C7A4"],
+    orbit: ["#E4C98E", "#C9D6B8", "#A6B1A4", "#EFE5D1"],
+    connector: "#9B9587",
+    dot: "#756F63",
+  },
+];
 
-const TYPE_SIZE_WEIGHT: Record<MilestoneType, number> = {
-  birth: 1.03,
-  marriage: 1.04,
-  anniversary: 1.0,
-  family: 1.0,
-  home: 0.97,
-  career: 0.96,
-  travel: 0.95,
-  graduation: 0.96,
-  memorial: 1.0,
-  other: 0.97,
-};
+function getColorScheme(id: ColorSchemeId) {
+  return COLOR_SCHEMES.find((s) => s.id === id) ?? COLOR_SCHEMES[0];
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -123,7 +170,6 @@ function rotatePoint(p: Point, deg: number): Point {
   const r = degToRad(deg);
   const c = Math.cos(r);
   const s = Math.sin(r);
-
   return {
     x: p.x * c - p.y * s,
     y: p.x * s + p.y * c,
@@ -137,20 +183,16 @@ function sampleCurve(
   end = TAU
 ): Point[] {
   const points: Point[] = [];
-
   for (let i = 0; i <= steps; i++) {
     const t = start + ((end - start) * i) / steps;
     points.push(fn(t));
   }
-
   return points;
 }
 
 function pointsToPath(points: Point[], close = true) {
   if (!points.length) return "";
-
   const [first, ...rest] = points;
-
   return (
     `M ${fmt(first.x)} ${fmt(first.y)} ` +
     rest.map((p) => `L ${fmt(p.x)} ${fmt(p.y)}`).join(" ") +
@@ -180,7 +222,6 @@ function hypotrochoidPoints(
     (t) => {
       const x = (R - r) * Math.cos(t) + d * Math.cos(((R - r) / r) * t);
       const y = (R - r) * Math.sin(t) - d * Math.sin(((R - r) / r) * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -201,7 +242,6 @@ function epitrochoidPoints(
     (t) => {
       const x = (R + r) * Math.cos(t) - d * Math.cos(((R + r) / r) * t);
       const y = (R + r) * Math.sin(t) - d * Math.sin(((R + r) / r) * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps,
@@ -224,7 +264,6 @@ function rosettePoints(
       const rr =
         radius *
         (inner + amp * (0.5 + 0.5 * Math.cos(petalCount * t + phase)));
-
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -249,7 +288,6 @@ function lissajousPoints(
     (t) => {
       const x = radius * Math.sin(a * t + delta);
       const y = radius * Math.sin(b * t);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps
@@ -270,10 +308,8 @@ function superellipseOrbitPoints(
       const rr = radius * (0.76 + wobbleAmp * Math.cos(wobbleFreq * t + phase));
       const c = Math.cos(t);
       const s = Math.sin(t);
-
       const x = rr * Math.sign(c) * Math.pow(Math.abs(c), 2 / exponent);
       const y = rr * Math.sign(s) * Math.pow(Math.abs(s), 2 / exponent);
-
       return rotatePoint({ x, y }, rotationDeg);
     },
     steps
@@ -296,7 +332,6 @@ function irregularOrbitPoints(
         (0.72 +
           ampA * Math.cos(freqA * t) +
           ampB * Math.sin(freqB * t + 0.7));
-
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -316,18 +351,15 @@ function spiralVortexPoints(
   steps = 2600
 ): Point[] {
   const turns = 7;
-
   return sampleCurve(
     (t) => {
       const p = t / (TAU * turns);
-
       const rr =
         radius *
         (0.13 +
           0.74 * p +
           0.13 * Math.cos(petals * t + p * 8.8) +
           0.045 * Math.sin(17 * t));
-
       return rotatePoint(
         {
           x: rr * Math.cos(t),
@@ -349,11 +381,9 @@ function radialThreadDiskPoints(
   rotationDeg = 0
 ): Point[] {
   const pts: Point[] = [];
-
   for (let i = 0; i <= count; i++) {
     const a = ((i * skip) % count) / count;
     const t = a * TAU;
-
     pts.push(
       rotatePoint(
         {
@@ -364,7 +394,6 @@ function radialThreadDiskPoints(
       )
     );
   }
-
   return pts;
 }
 
@@ -386,7 +415,6 @@ function fibonacciSpiralPoints(
     const theta = (maxTheta * i) / steps;
     const r = startRadius * Math.pow(PHI, growth * theta);
     const a = theta + rotation;
-
     points.push({
       x: centerX + Math.cos(a) * r * xScale,
       y: centerY + Math.sin(a) * r * yScale,
@@ -442,25 +470,14 @@ function layer(
 const DESIGN_LIBRARY: DesignPreset[] = [
   {
     id: "greenGuillocheDonut",
-    label: "Green Guilloche Donut",
+    label: "Guilloche Donut",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.55, 1.35);
       const R = radius * 0.77;
       const r = R / 11;
-
       return [
-        layer(
-          hypotrochoidPoints(R, r, radius * 0.28, 11, rotation, 2600),
-          palette[1],
-          sw,
-          0.54
-        ),
-        layer(
-          hypotrochoidPoints(R * 0.94, r, radius * 0.24, 11, rotation + 7, 2400),
-          palette[0],
-          sw * 0.88,
-          0.34
-        ),
+        layer(hypotrochoidPoints(R, r, radius * 0.28, 11, rotation, 2600), palette[1], sw, 0.54),
+        layer(hypotrochoidPoints(R * 0.94, r, radius * 0.24, 11, rotation + 7, 2400), palette[0], sw * 0.88, 0.34),
         layer(circlePoints(radius * 0.32), palette[3], sw * 1.4, 0.48),
       ];
     },
@@ -470,66 +487,33 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Fine Mesh Halo",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.0085, 0.48, 1.15);
-
       return [
-        layer(
-          radialThreadDiskPoints(radius * 0.92, 43, 151, rotation),
-          palette[0],
-          sw,
-          0.42
-        ),
-        layer(
-          radialThreadDiskPoints(radius * 0.82, 37, 137, rotation + 4),
-          palette[2],
-          sw,
-          0.22
-        ),
+        layer(radialThreadDiskPoints(radius * 0.92, 43, 151, rotation), palette[0], sw, 0.42),
+        layer(radialThreadDiskPoints(radius * 0.82, 37, 137, rotation + 4), palette[2], sw, 0.22),
         layer(circlePoints(radius * 0.25), palette[3], sw * 1.5, 0.5),
       ];
     },
   },
   {
     id: "airyDaisyLarge",
-    label: "Airy Daisy Large",
+    label: "Airy Daisy",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
-
       return [
-        layer(
-          rosettePoints(radius, 34, 0.88, 0.14, rotation, 2100),
-          palette[0],
-          sw,
-          0.4
-        ),
-        layer(
-          rosettePoints(radius * 0.78, 17, 0.72, 0.22, rotation + 5, 1700),
-          palette[3],
-          sw * 0.82,
-          0.2
-        ),
+        layer(rosettePoints(radius, 34, 0.88, 0.14, rotation, 2100), palette[0], sw, 0.4),
+        layer(rosettePoints(radius * 0.78, 17, 0.72, 0.22, rotation + 5, 1700), palette[3], sw * 0.82, 0.2),
         layer(circlePoints(radius * 0.1), palette[1], sw * 1.25, 0.6),
       ];
     },
   },
   {
     id: "petalWheelTight",
-    label: "Petal Wheel Tight",
+    label: "Petal Wheel",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.45);
-
       return [
-        layer(
-          rosettePoints(radius * 0.96, 26, 0.8, 0.18, rotation, 2100),
-          palette[1],
-          sw,
-          0.48
-        ),
-        layer(
-          rosettePoints(radius * 0.82, 13, 0.66, 0.28, rotation + 9, 1700),
-          palette[0],
-          sw * 0.82,
-          0.28
-        ),
+        layer(rosettePoints(radius * 0.96, 26, 0.8, 0.18, rotation, 2100), palette[1], sw, 0.48),
+        layer(rosettePoints(radius * 0.82, 13, 0.66, 0.28, rotation + 9, 1700), palette[0], sw * 0.82, 0.28),
         layer(circlePoints(radius * 0.14), palette[3], sw * 1.35, 0.55),
       ];
     },
@@ -539,34 +523,9 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Open Flower Ring",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
-
       return [
-        layer(
-          epitrochoidPoints(
-            radius * 0.43,
-            radius * 0.092,
-            radius * 0.48,
-            9,
-            rotation,
-            2400
-          ),
-          palette[0],
-          sw,
-          0.32
-        ),
-        layer(
-          epitrochoidPoints(
-            radius * 0.37,
-            radius * 0.082,
-            radius * 0.41,
-            9,
-            rotation + 7,
-            2200
-          ),
-          palette[2],
-          sw * 0.92,
-          0.24
-        ),
+        layer(epitrochoidPoints(radius * 0.43, radius * 0.092, radius * 0.48, 9, rotation, 2400), palette[0], sw, 0.32),
+        layer(epitrochoidPoints(radius * 0.37, radius * 0.082, radius * 0.41, 9, rotation + 7, 2200), palette[2], sw * 0.92, 0.24),
         layer(circlePoints(radius * 0.24), palette[1], sw * 1.3, 0.46),
       ];
     },
@@ -576,28 +535,9 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Soft Square Orbit",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.45);
-
       return [
-        layer(
-          superellipseOrbitPoints(radius, 4.5, 6, 0.1, rotation, 2000, 0),
-          palette[0],
-          sw,
-          0.38
-        ),
-        layer(
-          superellipseOrbitPoints(
-            radius * 0.87,
-            4.5,
-            7,
-            0.08,
-            rotation + 15,
-            1900,
-            1.1
-          ),
-          palette[2],
-          sw * 0.88,
-          0.28
-        ),
+        layer(superellipseOrbitPoints(radius, 4.5, 6, 0.1, rotation, 2000, 0), palette[0], sw, 0.38),
+        layer(superellipseOrbitPoints(radius * 0.87, 4.5, 7, 0.08, rotation + 15, 1900, 1.1), palette[2], sw * 0.88, 0.28),
         layer(circlePoints(radius * 0.27), palette[1], sw * 1.25, 0.46),
       ];
     },
@@ -607,76 +547,10 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Box Orbit Rosette",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
-
       return [
-        layer(
-          superellipseOrbitPoints(
-            radius * 0.98,
-            5.8,
-            8,
-            0.18,
-            rotation,
-            2100,
-            0.2
-          ),
-          palette[2],
-          sw,
-          0.4
-        ),
-        layer(
-          superellipseOrbitPoints(
-            radius * 0.78,
-            5.2,
-            8,
-            0.13,
-            rotation + 18,
-            1900,
-            0.9
-          ),
-          palette[0],
-          sw * 0.86,
-          0.28
-        ),
+        layer(superellipseOrbitPoints(radius * 0.98, 5.8, 8, 0.18, rotation, 2100, 0.2), palette[2], sw, 0.4),
+        layer(superellipseOrbitPoints(radius * 0.78, 5.2, 8, 0.13, rotation + 18, 1900, 0.9), palette[0], sw * 0.86, 0.28),
         layer(circlePoints(radius * 0.2), palette[3], sw * 1.25, 0.48),
-      ];
-    },
-  },
-  {
-    id: "roundedSquareLoose",
-    label: "Rounded Square Loose",
-    render: (radius, palette, rotation) => {
-      const sw = clamp(radius * 0.012, 0.62, 1.45);
-
-      return [
-        layer(
-          superellipseOrbitPoints(
-            radius * 0.95,
-            3.7,
-            5,
-            0.16,
-            rotation,
-            1900,
-            0.4
-          ),
-          palette[2],
-          sw,
-          0.3
-        ),
-        layer(
-          superellipseOrbitPoints(
-            radius * 0.83,
-            3.6,
-            4,
-            0.12,
-            rotation + 23,
-            1800,
-            1.5
-          ),
-          palette[0],
-          sw,
-          0.24
-        ),
-        layer(circlePoints(radius * 0.3), palette[1], sw * 1.15, 0.42),
       ];
     },
   },
@@ -685,67 +559,22 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Loose Hand Ring",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.012, 0.62, 1.4);
-
       return [
-        layer(
-          irregularOrbitPoints(radius * 0.98, 7, 4, 0.12, 0.08, rotation, 2000),
-          palette[0],
-          sw,
-          0.3
-        ),
-        layer(
-          irregularOrbitPoints(
-            radius * 0.9,
-            6,
-            5,
-            0.1,
-            0.07,
-            rotation + 11,
-            1900
-          ),
-          palette[2],
-          sw * 0.9,
-          0.28
-        ),
-        layer(
-          irregularOrbitPoints(
-            radius * 0.78,
-            5,
-            3,
-            0.09,
-            0.06,
-            rotation + 22,
-            1800
-          ),
-          palette[1],
-          sw * 0.82,
-          0.22
-        ),
+        layer(irregularOrbitPoints(radius * 0.98, 7, 4, 0.12, 0.08, rotation, 2000), palette[0], sw, 0.3),
+        layer(irregularOrbitPoints(radius * 0.9, 6, 5, 0.1, 0.07, rotation + 11, 1900), palette[2], sw * 0.9, 0.28),
+        layer(irregularOrbitPoints(radius * 0.78, 5, 3, 0.09, 0.06, rotation + 22, 1800), palette[1], sw * 0.82, 0.22),
         layer(circlePoints(radius * 0.33), palette[3], sw * 1.15, 0.38),
       ];
     },
   },
   {
     id: "spiralVortexCluster",
-    label: "Spiral Vortex Cluster",
+    label: "Spiral Vortex",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.01, 0.52, 1.25);
-
       return [
-        layer(
-          spiralVortexPoints(radius * 0.96, 12, rotation, 2600),
-          palette[2],
-          sw,
-          0.38,
-          false
-        ),
-        layer(
-          spiralVortexPoints(radius * 0.8, 9, rotation + 8, 2300),
-          palette[0],
-          sw * 0.9,
-          0.26,
-          false
-        ),
+        layer(spiralVortexPoints(radius * 0.96, 12, rotation, 2600), palette[2], sw, 0.38, false),
+        layer(spiralVortexPoints(radius * 0.8, 9, rotation + 8, 2300), palette[0], sw * 0.9, 0.26, false),
         layer(circlePoints(radius * 0.2), palette[1], sw * 1.3, 0.42),
       ];
     },
@@ -755,34 +584,9 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Laced Orbit Bloom",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.01, 0.52, 1.25);
-
       return [
-        layer(
-          lissajousPoints(
-            radius * 0.93,
-            7,
-            8,
-            Math.PI / 2.7,
-            rotation,
-            2400
-          ),
-          palette[0],
-          sw,
-          0.32
-        ),
-        layer(
-          lissajousPoints(
-            radius * 0.8,
-            5,
-            6,
-            Math.PI / 3.1,
-            rotation + 10,
-            2200
-          ),
-          palette[2],
-          sw * 0.9,
-          0.24
-        ),
+        layer(lissajousPoints(radius * 0.93, 7, 8, Math.PI / 2.7, rotation, 2400), palette[0], sw, 0.32),
+        layer(lissajousPoints(radius * 0.8, 5, 6, Math.PI / 3.1, rotation + 10, 2200), palette[2], sw * 0.9, 0.24),
         layer(circlePoints(radius * 0.26), palette[1], sw * 1.25, 0.42),
       ];
     },
@@ -792,40 +596,23 @@ const DESIGN_LIBRARY: DesignPreset[] = [
     label: "Thin Sunflower",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.0095, 0.5, 1.2);
-
       return [
-        layer(
-          rosettePoints(radius, 44, 0.92, 0.08, rotation, 2400),
-          palette[1],
-          sw,
-          0.34
-        ),
-        layer(
-          rosettePoints(radius * 0.86, 22, 0.78, 0.16, rotation + 3, 1900),
-          palette[0],
-          sw * 0.9,
-          0.22
-        ),
+        layer(rosettePoints(radius, 44, 0.92, 0.08, rotation, 2400), palette[1], sw, 0.34),
+        layer(rosettePoints(radius * 0.86, 22, 0.78, 0.16, rotation + 3, 1900), palette[0], sw * 0.9, 0.22),
         layer(circlePoints(radius * 0.07), palette[3], sw * 1.35, 0.44),
       ];
     },
   },
   {
     id: "nestedGreenHalo",
-    label: "Nested Green Halo",
+    label: "Nested Halo",
     render: (radius, palette, rotation) => {
       const sw = clamp(radius * 0.011, 0.58, 1.35);
-
       return [
         layer(circlePoints(radius * 0.92), palette[0], sw, 0.1),
         layer(circlePoints(radius * 0.78), palette[1], sw, 0.13),
         layer(circlePoints(radius * 0.64), palette[2], sw, 0.12),
-        layer(
-          rosettePoints(radius * 0.86, 16, 0.56, 0.32, rotation, 1700),
-          palette[0],
-          sw * 0.86,
-          0.28
-        ),
+        layer(rosettePoints(radius * 0.86, 16, 0.56, 0.32, rotation, 1700), palette[0], sw * 0.86, 0.28),
         layer(circlePoints(radius * 0.31), palette[3], sw * 1.25, 0.42),
       ];
     },
@@ -837,52 +624,9 @@ const DESIGN_LIBRARY: DesignPreset[] = [
       const sw = clamp(radius * 0.013, 0.62, 1.45);
       const R = radius * 0.68;
       const r = R / 8;
-
       return [
-        layer(
-          hypotrochoidPoints(R, r, radius * 0.18, 8, rotation, 1900),
-          palette[3],
-          sw,
-          0.44
-        ),
+        layer(hypotrochoidPoints(R, r, radius * 0.18, 8, rotation, 1900), palette[3], sw, 0.44),
         layer(circlePoints(radius * 0.28), palette[1], sw * 1.2, 0.46),
-      ];
-    },
-  },
-  {
-    id: "quietBlueGreenRing",
-    label: "Quiet Blue Green Ring",
-    render: (radius, palette, rotation) => {
-      const sw = clamp(radius * 0.011, 0.58, 1.35);
-
-      return [
-        layer(
-          hypotrochoidPoints(
-            radius * 0.74,
-            radius * 0.074,
-            radius * 0.26,
-            10,
-            rotation,
-            2300
-          ),
-          palette[0],
-          sw,
-          0.36
-        ),
-        layer(
-          lissajousPoints(
-            radius * 0.7,
-            6,
-            7,
-            Math.PI / 2.6,
-            rotation + 6,
-            2100
-          ),
-          palette[2],
-          sw * 0.82,
-          0.22
-        ),
-        layer(circlePoints(radius * 0.24), palette[3], sw * 1.2, 0.38),
       ];
     },
   },
@@ -890,26 +634,21 @@ const DESIGN_LIBRARY: DesignPreset[] = [
 
 function hashString(str: string) {
   let hash = 2166136261;
-
   for (let i = 0; i < str.length; i++) {
     hash ^= str.charCodeAt(i);
     hash +=
       (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
-
   return Math.abs(hash >>> 0);
 }
 
 function mulberry32(seed: number) {
   let a = seed;
-
   return function () {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;
-
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -923,28 +662,50 @@ function dateMs(dateStr: string) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function getDesignById(id: string) {
-  return DESIGN_LIBRARY.find((d) => d.id === id) ?? DESIGN_LIBRARY[0];
-}
-
-function resolveDesign(m: Milestone): DesignPreset {
-  if (m.designChoice !== "auto") return getDesignById(m.designChoice);
-
-  const seed = hashString(`${m.date}|${m.type}|${m.title}|${m.importance}`);
+function resolveDesign(m: Milestone) {
+  const seed = hashString(`${m.date}|${m.type}|${m.title}`);
   return DESIGN_LIBRARY[seed % DESIGN_LIBRARY.length];
 }
 
 function getBaseRadiusByCount(count: number) {
   if (count <= 1) return 124;
-  if (count <= 3) return 112;
-  if (count <= 6) return 92;
-  if (count <= 10) return 76;
-  if (count <= 16) return 62;
-  if (count <= 26) return 50;
-  return 42;
+  if (count <= 3) return 108;
+  if (count <= 6) return 88;
+  if (count <= 10) return 72;
+  if (count <= 16) return 58;
+  if (count <= 26) return 48;
+  return 40;
 }
 
-function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
+function getDateDrivenScale(
+  m: Milestone,
+  index: number,
+  dates: number[],
+  baseRadius: number
+) {
+  const count = dates.length;
+  const current = dates[index];
+
+  if (count === 1) return baseRadius * 1.05;
+
+  const span = Math.max(1, dates[count - 1] - dates[0]);
+  const avgGap = span / Math.max(1, count - 1);
+
+  const before = index === 0 ? avgGap : current - dates[index - 1];
+  const after = index === count - 1 ? avgGap : dates[index + 1] - current;
+
+  const isolation = clamp((before + after) / (2 * avgGap), 0.82, 1.18);
+  const edgePresence = index === 0 || index === count - 1 ? 1.06 : 1;
+  const dateSeed = hashString(m.date);
+  const dateTexture = 0.94 + ((dateSeed % 100) / 100) * 0.12;
+
+  return baseRadius * isolation * edgePresence * dateTexture;
+}
+
+function buildComposition(
+  milestones: Milestone[],
+  colorScheme: ColorScheme
+): ComposedMilestone[] {
   const valid = milestones
     .filter((m) => !!m.date)
     .sort((a, b) => dateMs(a.date) - dateMs(b.date));
@@ -953,6 +714,7 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
 
   const count = valid.length;
   const baseRadius = getBaseRadiusByCount(count);
+  const dates = valid.map((m) => dateMs(m.date));
 
   const centerX = CANVAS_W * 0.5;
   const centerY = CANVAS_H * 0.51;
@@ -965,15 +727,19 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
     const rnd = mulberry32(seed);
 
     const design = resolveDesign(m);
-    const palette = TYPE_PALETTES[m.type] ?? TYPE_PALETTES.other;
+    const palette = colorScheme.motif;
 
     const spiralIndex = index + 1.25;
     const radialProgress =
       count === 1 ? 0 : Math.sqrt(spiralIndex) / Math.sqrt(count + 1.25);
 
+    const normalizedDate =
+      count === 1 ? 0.5 : (dates[index] - dates[0]) / Math.max(1, dates[count - 1] - dates[0]);
+
     const angle =
       index * GOLDEN_ANGLE -
       Math.PI * 0.72 +
+      normalizedDate * 0.9 +
       (hashString(m.date) % 100) * 0.0009 +
       (rnd() - 0.5) * 0.12;
 
@@ -982,14 +748,10 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
     const x = centerX + Math.cos(angle) * r * 1.02;
     const y = centerY + Math.sin(angle) * r * 0.82;
 
-    const importanceScale = 0.88 + clamp(m.importance, 1, 5) * 0.055;
-    const typeScale = TYPE_SIZE_WEIGHT[m.type] ?? 1;
-    const dateNoise = 0.94 + rnd() * 0.12;
-
     const radius = clamp(
-      baseRadius * importanceScale * typeScale * dateNoise,
+      getDateDrivenScale(m, index, dates, baseRadius),
       30,
-      count <= 4 ? 128 : 96
+      count <= 4 ? 126 : 94
     );
 
     const rotation = (seed % 180) - 90;
@@ -1015,7 +777,6 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.max(1, Math.hypot(dx, dy));
-
         const desired = a.radius * 0.92 + b.radius * 0.92 + 34;
 
         if (dist < desired) {
@@ -1033,7 +794,6 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
 
     for (const item of items) {
       const margin = item.radius + 58;
-
       item.x = clamp(item.x, margin, CANVAS_W - margin);
       item.y = clamp(item.y, margin, CANVAS_H - margin);
     }
@@ -1045,143 +805,66 @@ function buildComposition(milestones: Milestone[]): ComposedMilestone[] {
   }));
 }
 
-function buildBackgroundOrbits(composition: ComposedMilestone[]) {
+function buildBackgroundOrbits(
+  composition: ComposedMilestone[],
+  colorScheme: ColorScheme
+) {
   if (!composition.length) return [];
 
   const centerX = CANVAS_W * 0.52;
   const centerY = CANVAS_H * 0.49;
+  const [a, b, c, d] = colorScheme.orbit;
 
-  const mainColor = "#8BCDD3";
-  const warmColor = "#F0AC5F";
-  const darkColor = "#536176";
-  const greenColor = "#93B96A";
-
-  const layers: PathLayer[] = [];
-
-  layers.push(
+  return [
     layer(
-      fibonacciSpiralPoints(
-        centerX - 110,
-        centerY + 20,
-        7,
-        0.055,
-        4.6,
-        -1.1,
-        1.08,
-        0.78,
-        1200
-      ),
-      mainColor,
+      fibonacciSpiralPoints(centerX - 110, centerY + 20, 7, 0.055, 4.6, -1.1, 1.08, 0.78, 1200),
+      a,
       1.2,
       0.18,
       false
-    )
-  );
-
-  layers.push(
+    ),
     layer(
-      fibonacciSpiralPoints(
-        centerX + 120,
-        centerY + 20,
-        8,
-        0.052,
-        4.35,
-        1.8,
-        1.12,
-        0.8,
-        1200
-      ),
-      darkColor,
+      fibonacciSpiralPoints(centerX + 120, centerY + 20, 8, 0.052, 4.35, 1.8, 1.12, 0.8, 1200),
+      c,
       1.05,
       0.16,
       false
-    )
-  );
-
-  layers.push(
+    ),
     layer(
-      fibonacciSpiralPoints(
-        centerX - 320,
-        centerY - 240,
-        10,
-        0.052,
-        3.6,
-        -2.4,
-        1.25,
-        0.92,
-        1000
-      ),
-      warmColor,
+      fibonacciSpiralPoints(centerX - 320, centerY - 240, 10, 0.052, 3.6, -2.4, 1.25, 0.92, 1000),
+      b,
       1.1,
-      0.24,
+      0.22,
       false
-    )
-  );
-
-  layers.push(
+    ),
     layer(
-      orbitSweepPoints(
-        centerX,
-        centerY,
-        505,
-        -0.2,
-        1.22,
-        0.68,
-        950,
-        -0.55 * TAU,
-        0.72 * TAU
-      ),
-      mainColor,
+      orbitSweepPoints(centerX, centerY, 505, -0.2, 1.22, 0.68, 950, -0.55 * TAU, 0.72 * TAU),
+      a,
       0.9,
       0.13,
       false
-    )
-  );
-
-  layers.push(
+    ),
     layer(
-      orbitSweepPoints(
-        centerX + 90,
-        centerY - 90,
-        405,
-        0.75,
-        1.38,
-        0.72,
-        950,
-        -0.15 * TAU,
-        0.98 * TAU
-      ),
-      darkColor,
+      orbitSweepPoints(centerX + 90, centerY - 90, 405, 0.75, 1.38, 0.72, 950, -0.15 * TAU, 0.98 * TAU),
+      c,
       0.9,
       0.1,
       false
-    )
-  );
-
-  layers.push(
+    ),
     layer(
-      orbitSweepPoints(
-        centerX - 180,
-        centerY + 120,
-        350,
-        1.15,
-        1.18,
-        0.74,
-        850,
-        -0.2 * TAU,
-        0.85 * TAU
-      ),
-      greenColor,
+      orbitSweepPoints(centerX - 180, centerY + 120, 350, 1.15, 1.18, 0.74, 850, -0.2 * TAU, 0.85 * TAU),
+      d,
       0.8,
       0.08,
       false
-    )
-  );
-
-  return layers;
+    ),
+  ];
 }
 
-function buildConnectorLines(composition: ComposedMilestone[]): PathLayer[] {
+function buildConnectorLines(
+  composition: ComposedMilestone[],
+  colorScheme: ColorScheme
+): PathLayer[] {
   if (composition.length < 2) return [];
 
   const sorted = [...composition].sort(
@@ -1193,7 +876,7 @@ function buildConnectorLines(composition: ComposedMilestone[]): PathLayer[] {
   return [
     {
       d: pointsToPath(points, false),
-      stroke: "#7F8FA1",
+      stroke: colorScheme.connector,
       strokeWidth: 1,
       opacity: 0.22,
       dasharray: "8 14",
@@ -1205,13 +888,12 @@ const initialDraft: DraftMilestone = {
   title: "",
   date: "",
   type: "birth",
-  importance: 3,
-  designChoice: "auto",
 };
 
 export default function App() {
   const [artworkTitle, setArtworkTitle] = useState("Fibonacci Milestone Artwork");
-  const [background, setBackground] = useState("#FCFCFA");
+  const [colorSchemeId, setColorSchemeId] =
+    useState<ColorSchemeId>("botanical");
   const [showOrbits, setShowOrbits] = useState(true);
   const [showConnectors, setShowConnectors] = useState(true);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -1219,16 +901,24 @@ export default function App() {
 
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const composition = useMemo(() => buildComposition(milestones), [milestones]);
+  const colorScheme = useMemo(
+    () => getColorScheme(colorSchemeId),
+    [colorSchemeId]
+  );
+
+  const composition = useMemo(
+    () => buildComposition(milestones, colorScheme),
+    [milestones, colorScheme]
+  );
 
   const backgroundOrbits = useMemo(
-    () => buildBackgroundOrbits(composition),
-    [composition]
+    () => buildBackgroundOrbits(composition, colorScheme),
+    [composition, colorScheme]
   );
 
   const connectorLines = useMemo(
-    () => buildConnectorLines(composition),
-    [composition]
+    () => buildConnectorLines(composition, colorScheme),
+    [composition, colorScheme]
   );
 
   function addMilestone() {
@@ -1239,8 +929,6 @@ export default function App() {
       title: draft.title.trim() || "Milestone",
       date: draft.date,
       type: draft.type,
-      importance: clamp(Math.round(draft.importance), 1, 5),
-      designChoice: draft.designChoice,
     };
 
     setMilestones((prev) => [...prev, newMilestone]);
@@ -1249,8 +937,6 @@ export default function App() {
       ...prev,
       title: "",
       date: "",
-      importance: 3,
-      designChoice: "auto",
     }));
   }
 
@@ -1274,62 +960,13 @@ export default function App() {
 
   function loadDemo() {
     setMilestones([
-      {
-        id: createId(),
-        title: "Leah Born",
-        date: "1979-03-02",
-        type: "birth",
-        importance: 4,
-        designChoice: "airyDaisyLarge",
-      },
-      {
-        id: createId(),
-        title: "Thomas Born",
-        date: "1983-07-14",
-        type: "birth",
-        importance: 4,
-        designChoice: "greenGuillocheDonut",
-      },
-      {
-        id: createId(),
-        title: "Marriage",
-        date: "2006-09-16",
-        type: "marriage",
-        importance: 4,
-        designChoice: "softSquareOrbit",
-      },
-      {
-        id: createId(),
-        title: "Lucas Born",
-        date: "2013-01-09",
-        type: "birth",
-        importance: 5,
-        designChoice: "fineMeshHalo",
-      },
-      {
-        id: createId(),
-        title: "First Home",
-        date: "2018-06-22",
-        type: "home",
-        importance: 3,
-        designChoice: "looseHandRing",
-      },
-      {
-        id: createId(),
-        title: "Career Moment",
-        date: "2024-03-01",
-        type: "career",
-        importance: 3,
-        designChoice: "boxOrbitRosette",
-      },
-      {
-        id: createId(),
-        title: "Family Trip",
-        date: "2025-08-10",
-        type: "travel",
-        importance: 2,
-        designChoice: "smallSeedRing",
-      },
+      { id: createId(), title: "Leah Born", date: "1979-03-02", type: "birth" },
+      { id: createId(), title: "Thomas Born", date: "1983-07-14", type: "birth" },
+      { id: createId(), title: "Marriage", date: "2006-09-16", type: "marriage" },
+      { id: createId(), title: "Lucas Born", date: "2013-01-09", type: "birth" },
+      { id: createId(), title: "First Home", date: "2018-06-22", type: "home" },
+      { id: createId(), title: "Career Moment", date: "2024-03-01", type: "career" },
+      { id: createId(), title: "Family Trip", date: "2025-08-10", type: "travel" },
     ]);
   }
 
@@ -1384,15 +1021,7 @@ export default function App() {
           alignItems: "start",
         }}
       >
-        <div
-          style={{
-            background: "#F8F9F5",
-            borderRadius: 18,
-            padding: 18,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.07)",
-            border: "1px solid rgba(36,49,39,0.08)",
-          }}
-        >
+        <div style={panelStyle}>
           <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.1 }}>
             Fibonacci Milestone Art
           </h1>
@@ -1406,9 +1035,9 @@ export default function App() {
               fontSize: 14,
             }}
           >
-            Each date creates one fixed spirograph motif. Motifs are placed on a
-            Fibonacci-based field with airy orbital sweeps and restrained modern
-            spacing.
+            Enter meaningful dates. The artwork automatically translates them
+            into a Fibonacci-based composition with one unique spirograph per
+            milestone.
           </p>
 
           <div style={sectionStyle}>
@@ -1422,13 +1051,20 @@ export default function App() {
               placeholder="Fibonacci Milestone Artwork"
             />
 
-            <label style={labelStyle}>Background</label>
-            <input
-              style={{ ...inputStyle, height: 44, padding: 8 }}
-              type="color"
-              value={background}
-              onChange={(e) => setBackground(e.target.value)}
-            />
+            <label style={labelStyle}>Color Scheme</label>
+            <select
+              style={inputStyle}
+              value={colorSchemeId}
+              onChange={(e) =>
+                setColorSchemeId(e.target.value as ColorSchemeId)
+              }
+            >
+              {COLOR_SCHEMES.map((scheme) => (
+                <option key={scheme.id} value={scheme.id}>
+                  {scheme.label}
+                </option>
+              ))}
+            </select>
 
             <label style={toggleRowStyle}>
               <input
@@ -1511,41 +1147,6 @@ export default function App() {
                 </option>
               ))}
             </select>
-
-            <label style={labelStyle}>Design Choice</label>
-            <select
-              style={inputStyle}
-              value={draft.designChoice}
-              onChange={(e) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  designChoice: e.target.value,
-                }))
-              }
-            >
-              <option value="auto">Auto Select from Library</option>
-              {DESIGN_LIBRARY.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-
-            <label style={labelStyle}>Importance: {draft.importance}</label>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={draft.importance}
-              onChange={(e) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  importance: Number(e.target.value),
-                }))
-              }
-              style={{ width: "100%" }}
-            />
           </div>
 
           <div style={sectionStyle}>
@@ -1567,160 +1168,92 @@ export default function App() {
               </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
-                {milestones.map((m) => {
-                  const resolved = resolveDesign(m);
-
-                  return (
+                {milestones.map((m) => (
+                  <div
+                    key={m.id}
+                    style={{
+                      background: "#FFFFFF",
+                      border: "1px solid rgba(36,49,39,0.08)",
+                      borderRadius: 14,
+                      padding: 12,
+                    }}
+                  >
                     <div
-                      key={m.id}
                       style={{
-                        background: "#FFFFFF",
-                        border: "1px solid rgba(36,49,39,0.08)",
-                        borderRadius: 14,
-                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto",
+                        gap: 8,
+                        alignItems: "start",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr auto",
-                          gap: 8,
-                          alignItems: "start",
-                        }}
-                      >
-                        <div>
+                      <div>
+                        <input
+                          style={{ ...inputStyle, marginBottom: 8 }}
+                          value={m.title}
+                          onChange={(e) =>
+                            updateMilestone(m.id, "title", e.target.value)
+                          }
+                        />
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 8,
+                          }}
+                        >
                           <input
-                            style={{ ...inputStyle, marginBottom: 8 }}
-                            value={m.title}
+                            type="date"
+                            style={inputStyle}
+                            value={m.date}
                             onChange={(e) =>
-                              updateMilestone(m.id, "title", e.target.value)
+                              updateMilestone(m.id, "date", e.target.value)
                             }
                           />
 
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: 8,
-                            }}
+                          <select
+                            style={inputStyle}
+                            value={m.type}
+                            onChange={(e) =>
+                              updateMilestone(
+                                m.id,
+                                "type",
+                                e.target.value as MilestoneType
+                              )
+                            }
                           >
-                            <input
-                              type="date"
-                              style={inputStyle}
-                              value={m.date}
-                              onChange={(e) =>
-                                updateMilestone(m.id, "date", e.target.value)
-                              }
-                            />
-
-                            <select
-                              style={inputStyle}
-                              value={m.type}
-                              onChange={(e) =>
-                                updateMilestone(
-                                  m.id,
-                                  "type",
-                                  e.target.value as MilestoneType
-                                )
-                              }
-                            >
-                              {TYPE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 110px",
-                              gap: 8,
-                              marginTop: 8,
-                            }}
-                          >
-                            <select
-                              style={inputStyle}
-                              value={m.designChoice}
-                              onChange={(e) =>
-                                updateMilestone(
-                                  m.id,
-                                  "designChoice",
-                                  e.target.value
-                                )
-                              }
-                            >
-                              <option value="auto">Auto</option>
-                              {DESIGN_LIBRARY.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.label}
-                                </option>
-                              ))}
-                            </select>
-
-                            <select
-                              style={inputStyle}
-                              value={m.importance}
-                              onChange={(e) =>
-                                updateMilestone(
-                                  m.id,
-                                  "importance",
-                                  Number(e.target.value)
-                                )
-                              }
-                            >
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <option key={n} value={n}>
-                                  {`Importance ${n}`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: 8,
-                              color: "#657369",
-                              fontSize: 12,
-                            }}
-                          >
-                            Active motif: <strong>{resolved.label}</strong>
-                          </div>
+                            {TYPE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-
-                        <button
-                          onClick={() => removeMilestone(m.id)}
-                          style={{
-                            border: "none",
-                            background: "#F2F4EF",
-                            color: "#58655D",
-                            borderRadius: 10,
-                            padding: "10px 12px",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Remove
-                        </button>
                       </div>
+
+                      <button
+                        onClick={() => removeMilestone(m.id)}
+                        style={{
+                          border: "none",
+                          background: "#F2F4EF",
+                          color: "#58655D",
+                          borderRadius: 10,
+                          padding: "10px 12px",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Remove
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        <div
-          style={{
-            background: "#F8F9F5",
-            borderRadius: 18,
-            padding: 18,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.07)",
-            border: "1px solid rgba(36,49,39,0.08)",
-          }}
-        >
+        <div style={panelStyle}>
           <div
             style={{
               display: "flex",
@@ -1736,8 +1269,7 @@ export default function App() {
                 {artworkTitle}
               </div>
               <div style={{ fontSize: 13, color: "#647268", marginTop: 4 }}>
-                Fibonacci composition • one date = one motif • no motif
-                stretching
+                Fibonacci composition • automatic motif selection • global color scheme
               </div>
             </div>
 
@@ -1764,7 +1296,7 @@ export default function App() {
                 height: "auto",
                 display: "block",
                 aspectRatio: `${CANVAS_W} / ${CANVAS_H}`,
-                background,
+                background: colorScheme.background,
               }}
             >
               <rect
@@ -1772,7 +1304,7 @@ export default function App() {
                 y={0}
                 width={CANVAS_W}
                 height={CANVAS_H}
-                fill={background}
+                fill={colorScheme.background}
               />
 
               {showOrbits &&
@@ -1812,8 +1344,7 @@ export default function App() {
                   transform={`translate(${item.x} ${item.y})`}
                 >
                   <title>
-                    {item.milestone.title} • {item.design.label} •{" "}
-                    {item.milestone.date}
+                    {item.milestone.title} • {item.milestone.date}
                   </title>
 
                   {item.layers.map((l, idx) => (
@@ -1835,7 +1366,7 @@ export default function App() {
                     cx={0}
                     cy={0}
                     r={clamp(item.radius * 0.028, 2, 4)}
-                    fill={item.palette[2]}
+                    fill={colorScheme.dot}
                     opacity={0.65}
                   />
                 </g>
@@ -1872,74 +1403,19 @@ export default function App() {
               </div>
             )}
           </div>
-
-          <div style={{ marginTop: 18 }}>
-            <div style={sectionTitleStyle}>Design Library</div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                gap: 10,
-              }}
-            >
-              {DESIGN_LIBRARY.map((d, i) => {
-                const type = TYPE_OPTIONS[i % TYPE_OPTIONS.length].value;
-                const samplePalette = TYPE_PALETTES[type] ?? TYPE_PALETTES.other;
-                const sampleLayers = d.render(34, samplePalette, 0);
-
-                return (
-                  <div
-                    key={d.id}
-                    style={{
-                      background: "#FFFFFF",
-                      borderRadius: 12,
-                      border: "1px solid rgba(36,49,39,0.08)",
-                      padding: 10,
-                    }}
-                  >
-                    <svg
-                      viewBox="-52 -52 104 104"
-                      style={{ width: "100%", height: 120 }}
-                    >
-                      {sampleLayers.map((l, idx) => (
-                        <path
-                          key={idx}
-                          d={l.d}
-                          fill="none"
-                          stroke={l.stroke}
-                          strokeWidth={l.strokeWidth}
-                          strokeOpacity={l.opacity}
-                          strokeDasharray={l.dasharray}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      ))}
-                    </svg>
-
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>
-                      {d.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "#68766D",
-                        marginTop: 4,
-                      }}
-                    >
-                      ID: {d.id}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 }
+
+const panelStyle: React.CSSProperties = {
+  background: "#F8F9F5",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.07)",
+  border: "1px solid rgba(36,49,39,0.08)",
+};
 
 const sectionStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.75)",
